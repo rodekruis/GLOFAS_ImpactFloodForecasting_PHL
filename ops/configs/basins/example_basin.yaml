@@ -1,0 +1,31 @@
+---
+# Example basin configuration.  Replace with real values once calibration is complete.
+
+basin_id: example_basin
+country_iso3: PHL
+hydrobasins_level: 6
+hydrobasins_id: 999999
+glofas_point_ids:
+  - PHL_00000
+
+# The data_root specifies where to find input data (GloFAS reanalysis,
+# forecast files, hazard layers, population rasters).  Adjust this path
+# relative to the root of your project or mount a volume in production.
+data_root: "<path/to/basin/data>"
+
+evt:
+  method: POT-GPD
+  threshold_m3s: 0.0  # to be determined during calibration
+  run_length_days: 5
+  gpd_shape_xi: 0.0    # to be determined
+  gpd_scale_sigma: 1.0 # to be determined
+  event_rate_per_year: 0.0 # to be determined
+
+vulnerability:
+  depth_threshold_m: 0.3
+  impact_fraction: 1.0
+
+trigger:
+  impact_threshold_people: 100000
+  probability_threshold: 0.3
+  max_lead_time_days: 10

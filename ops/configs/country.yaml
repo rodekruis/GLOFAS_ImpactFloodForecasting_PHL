@@ -1,0 +1,16 @@
+---
+# Country-level configuration for the Philippines flood trigger
+
+country_iso3: "PHL"
+description: >
+  Default settings for the Philippines. This file holds high-level
+  metadata such as default exposure datasets, projection codes and a
+  list of basins defined in this project. Values here can be
+  overridden per basin in the basin-specific YAML files.
+
+exposure_dataset: "GHS-POP_2020"
+projection: "EPSG:4326"
+
+basins:
+  - basin_id: "example_basin"
+    config_file: "ops/configs/basins/example_basin.yaml"
