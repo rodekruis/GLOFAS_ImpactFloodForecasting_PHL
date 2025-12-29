@@ -1,0 +1,21 @@
+# Development dependencies
+# Install with: pip install -r requirements-dev.txt
+
+-r requirements.txt
+
+# Jupyter for calibration notebooks
+jupyter>=1.0.0
+notebook>=6.4.0
+ipykernel>=6.4.0
+matplotlib>=3.4.0
+seaborn>=0.11.0
+
+# Code quality
+black>=21.0
+flake8>=3.9.0
+mypy>=0.910
+pylint>=2.11.0
+
+# Testing
+pytest>=6.2.0
+pytest-cov>=2.12.0

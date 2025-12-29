@@ -1,0 +1,14 @@
+# Operational-only dependencies (minimal footprint)
+# Install with: pip install -r requirements-ops.txt
+
+-r requirements.txt
+
+# Scheduling & monitoring
+schedule>=1.1.0
+
+# Logging & alerting
+python-json-logger>=2.0.0
+
+# Optional: Cloud integrations (uncomment as needed)
+# azure-storage-blob>=12.9.0
+# boto3>=1.18.0  # For AWS S3

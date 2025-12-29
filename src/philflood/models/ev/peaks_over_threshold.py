@@ -6,10 +6,11 @@ extract independent exceedances from a pandas Series. The result is a
 Series containing only the cluster maxima above the specified
 threshold.
 
-At present these functions are stubs; real implementations will
-leverage external libraries such as ``pyextremes`` or custom code to
-identify and decluster exceedances. The goal is to preserve a
-consistent interface across the project.
+This module provides a thin wrapper around the implementation in
+``philflood.models.ev.threshold_analysis``.  The function defined here
+delegates to :func:`philflood.models.ev.threshold_analysis.extract_declust_pot` to
+perform declustering.  It is kept for backwards compatibility and
+maintains the same signature.
 """
 
 from __future__ import annotations
@@ -17,6 +18,9 @@ from __future__ import annotations
 from typing import Optional
 
 import pandas as pd
+
+# Import the actual implementation from the threshold_analysis module.
+from .threshold_analysis import extract_declust_pot as _impl
 
 
 def extract_declust_pot(
@@ -47,12 +51,9 @@ def extract_declust_pot(
 
     Notes
     -----
-    This function is currently a placeholder. You will need to implement
-    logic to identify contiguous clusters of exceedances separated by at
-    least `run_length_days` below the threshold, then take the cluster
-    maximum. In the interim, this function simply filters out values
-    below the threshold without declustering.
+    This function delegates its work to
+    :func:`philflood.models.ev.threshold_analysis.extract_declust_pot`.  See
+    that function for implementation details and additional
+    documentation.
     """
-    # Placeholder implementation: no declustering
-    exceedances = series[series > threshold].dropna()
-    return exceedances
+    return _impl(series, threshold=threshold, run_length_days=run_length_days)

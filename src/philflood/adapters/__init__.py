@@ -8,6 +8,7 @@ should extend these modules accordingly.
 """
 
 __all__ = [
-    "glofas_extractor",
-    "hazard_extractor",
+    "glofas",
+    "hazard_maps",
+    "climada_river",
 ]

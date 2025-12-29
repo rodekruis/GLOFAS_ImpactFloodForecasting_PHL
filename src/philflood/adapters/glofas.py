@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ..basin import BasinConfig
+from ..domain.basin import BasinConfig
 
 
 def load_glofas_reanalysis_for_basin(
@@ -39,47 +39,91 @@ def load_glofas_reanalysis_for_basin(
 ) -> pd.DataFrame:
     """Load GloFAS reanalysis discharge time series for the given basin.
 
+    This helper attempts to read pre‑extracted discharge time series for
+    the stations listed in ``basin.glofas_point_ids``.  The preferred
+    workflow is to first convert the raw GloFAS GRIB/NetCDF files into
+    a tidy table (e.g. Parquet or CSV) during calibration.  The
+    resulting file should be stored under ``<basin.data_root>/glofas/timeseries/``
+    with a name like ``<basin_id>__discharge.parquet``.  During
+    operational monitoring, you should not recompute the time series
+    from scratch on the fly.  If no pre‑extracted file is available the
+    function falls back to the legacy behaviour of returning an empty
+    DataFrame with the appropriate index.
+
     Parameters
     ----------
     basin : BasinConfig
         Basin configuration specifying which GloFAS point IDs to use and
-        where to find the data.
+        where to find the data (``basin.data_root``).
     start_date, end_date : str or date
-        Start and end of the time period to load.  Should span the
-        calibration period (decades).
+        Start and end of the time period to load.  Strings will be
+        parsed by ``pandas.to_datetime``.  The start date must not
+        exceed the end date.
     source : str, optional
-        Data source, currently only ``"local"`` is supported.  If you
-        implement a remote download, add options here.
+        Currently only ``"local"`` is supported.  Future versions may
+        implement remote downloads via the Copernicus API.
 
     Returns
     -------
     pandas.DataFrame
-        DataFrame indexed by datetime with one column per
-        ``glofas_point_id``.  Missing data are represented by NaN.
-
-    Notes
-    -----
-    This function currently expects that NetCDF files follow a naming
-    convention like ``<data_root>/glofas/reanalysis_<point_id>.nc``.  You
-    will need to adapt this function to your local file organisation.  For
-    examples of NetCDF operations with xarray, see the calibration
-    notebooks.
+        DataFrame indexed by datetime with one column per GloFAS
+        station.  If data are not available for a given station the
+        column contains NaNs.  If no extracted file is found an
+        empty DataFrame with the correct date index is returned.
     """
-    # Parse dates
     start = pd.to_datetime(start_date)
     end = pd.to_datetime(end_date)
     if start > end:
         raise ValueError("start_date must be before end_date")
-    # Placeholder: currently returns an empty DataFrame with correct index
+    # Build an empty date index covering the requested period
     index = pd.date_range(start=start, end=end, freq="D")
+    # Prepare empty DataFrame with all stations
     df = pd.DataFrame(index=index)
     for station in basin.glofas_point_ids:
-        # In a real implementation, open the NetCDF file and extract the
-        # discharge time series.  Use xarray to read and convert to pandas.
-        # ds = xr.open_dataset(path_to_file)
-        # ts = ds['discharge'].sel(time=slice(start, end)).to_pandas()
-        # df[station] = ts
-        df[station] = np.nan  # placeholder column
+        df[station] = np.nan
+    # Only support local source at present
+    if source != "local":
+        raise NotImplementedError(
+            f"Unsupported source '{source}'. Only 'local' is implemented."
+        )
+    # Determine the data root.  If not set in the config, default to the
+    # current working directory.  Accept both strings and Path objects.
+    data_root = basin.data_root or Path(".")
+    data_root = Path(data_root)
+    # Construct the expected path for the pre‑extracted time series
+    # The file name convention is <basin_id>__discharge.parquet
+    ts_dir = data_root / "glofas" / "timeseries"
+    ts_path_parquet = ts_dir / f"{basin.basin_id}__discharge.parquet"
+    ts_path_csv = ts_dir / f"{basin.basin_id}__discharge.csv"
+    # Try to load a Parquet file first
+    if ts_path_parquet.is_file():
+        try:
+            ts_df = pd.read_parquet(ts_path_parquet)
+        except Exception:
+            ts_df = None
+    elif ts_path_csv.is_file():
+        try:
+            ts_df = pd.read_csv(ts_path_csv, parse_dates=True, index_col=0)
+        except Exception:
+            ts_df = None
+    else:
+        ts_df = None
+    if ts_df is not None:
+        # Ensure the index is datetime and sorted
+        if not isinstance(ts_df.index, pd.DatetimeIndex):
+            ts_df.index = pd.to_datetime(ts_df.index)
+        ts_df = ts_df.sort_index()
+        # Subset to the requested date range
+        ts_subset = ts_df.loc[(ts_df.index >= start) & (ts_df.index <= end)]
+        # Reindex onto the full daily index to fill any missing days
+        ts_subset = ts_subset.reindex(index)
+        # If the file contains more stations than requested, filter
+        for col in ts_subset.columns:
+            if col not in df.columns:
+                df[col] = np.nan
+        df.update(ts_subset)
+        return df
+    # No extracted file found; return empty DataFrame with NaNs
     return df
 
 

@@ -27,8 +27,8 @@ import logging
 import numpy as np
 import xarray as xr
 
-from ..basin import BasinConfig
-from ..data.hazard_extractor import load_jrc_flood_hazard_layer
+from ..domain.basin import BasinConfig
+from .hazard_maps import load_jrc_flood_hazard_layer
 
 logger = logging.getLogger(__name__)
 

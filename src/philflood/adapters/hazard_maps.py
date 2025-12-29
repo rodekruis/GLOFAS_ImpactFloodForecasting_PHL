@@ -21,7 +21,7 @@ from typing import Optional
 import geopandas as gpd
 import xarray as xr
 
-from ..basin import BasinConfig
+from ..domain.basin import BasinConfig
 
 
 def load_hydrobasins_geometry(

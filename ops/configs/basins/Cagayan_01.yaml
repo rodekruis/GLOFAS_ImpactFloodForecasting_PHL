@@ -1,17 +1,21 @@
 ---
-# Example basin configuration.  Replace with real values once calibration is complete.
+# Configuration for the Cagayan sub‑basin (placeholder values).
 
-basin_id: example_basin
+basin_id: Cagayan_01
 country_iso3: PHL
-hydrobasins_level: 6
-hydrobasins_id: 999999
+# HydroBASINS level and ID must be set according to your basin delineation.
+hydrobasins_level: 7
+hydrobasins_id: 0  # TODO: replace with the actual HydroBASINS ID for this sub‑basin
+
+# List of GloFAS station or grid cell identifiers associated with this basin.
+# During calibration you should update this list to include all relevant point IDs.
 glofas_point_ids:
-  - PHL_00000
+  - PHL_00000  # TODO: replace with actual GloFAS point ID(s)
 
 # The data_root specifies where to find input data (GloFAS reanalysis,
 # forecast files, hazard layers, population rasters).  Adjust this path
 # relative to the root of your project or mount a volume in production.
-data_root: null # set per-environment
+data_root: data  # place downloaded and processed data under the `data` folder
 
 evt:
   method: POT-GPD

@@ -66,9 +66,13 @@ def load_basin_config(path: Union[str, Path]) -> BasinConfig:
         for k, v in data.items()
         if k not in {"evt", "vulnerability", "trigger"}
     }
-    return BasinConfig.from_dict(
-        basin_data, evt_data, vulnerability_data, trigger_data
-    )
+    cfg = BasinConfig.from_dict(basin_data, evt_data, vulnerability_data, trigger_data)
+    issues = cfg.validate()
+    if issues:
+        raise ValueError(f"Invalid basin config {path}:\n- " + "\n- ".join(issues))
+    return cfg
+
+
 
 
 def dump_basin_config(cfg: BasinConfig, path: Union[str, Path]) -> None:

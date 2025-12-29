@@ -159,3 +159,34 @@ class BasinConfig:
             trigger=trigger_cfg,
             **basin_data,
         )
+    
+    def validate(self) -> List[str]:
+        """Validate the basin configuration and return a list of issues.
+
+        This method checks that required fields are present and that
+        numerical parameters fall within sensible bounds.  It returns a
+        list of error messages; if the list is empty the configuration
+        is considered valid.
+        """
+        issues: List[str] = []
+
+        if not self.basin_id:
+            issues.append("basin_id is required")
+
+        if not (0.0 <= self.trigger.probability_threshold <= 1.0):
+            issues.append("trigger.probability_threshold must be between 0 and 1")
+
+        if self.trigger.impact_threshold_people <= 0:
+            issues.append("trigger.impact_threshold_people must be > 0")
+
+        if self.vulnerability.depth_threshold_m < 0:
+            issues.append("vulnerability.depth_threshold_m must be >= 0")
+
+        if not (0.0 <= self.vulnerability.impact_fraction <= 1.0):
+            issues.append("vulnerability.impact_fraction must be between 0 and 1")
+
+        if self.hydrobasins_level < 1 or self.hydrobasins_level > 12:
+            issues.append("hydrobasins_level must be between 1 and 12")
+
+        return issues
+

@@ -1,0 +1,21 @@
+name: PHLFlood
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - xarray
+  - netcdf4
+  - cftime
+  - geopandas
+  - rasterio
+  - shapely
+  - pyproj
+  - pyogrio
+  - scipy
+  - pyyaml
+  - python-dateutil
+  - pip
+  - pip:
+      - -e . --no-deps

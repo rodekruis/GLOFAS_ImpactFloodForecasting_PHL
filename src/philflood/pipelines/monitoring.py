@@ -21,10 +21,10 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 
-from ..basin import BasinConfig
-from ..config import load_basin_config
-from ..data.glofas_extractor import load_glofas_forecast_for_basin
-from ..hazard.climada_driver import run_flood_hazard
+from ..domain.basin import BasinConfig
+from ..domain.config import load_basin_config
+from ..adapters.glofas import load_glofas_forecast_for_basin
+from ..adapters.climada_river import run_flood_hazard
 from ..impact.population_exposure import load_population_grid
 from ..impact.vulnerability import compute_people_affected
 
