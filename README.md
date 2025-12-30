@@ -39,6 +39,7 @@ mamba install -c conda-forge -y `
   scipy pyyaml python-dateutil
 
 pip install -e . --no-deps
+```
 ### Installation Options
 
 - **Development** (includes Jupyter): `pip install -e ".[dev]"`
