@@ -41,7 +41,6 @@ into ``data/raw/glofas/historical/version_4_0/consolidated/discharge/grib2/``.
 """
 from __future__ import annotations
 import argparse
-import os
 import random
 import time
 import zipfile
