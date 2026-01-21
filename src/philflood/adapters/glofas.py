@@ -86,7 +86,11 @@ def is_valid_zip(path: Path) -> bool:
 
 
 def retrieve_with_retries(
-    client: cdsapi.Client, dataset: str, request: dict, target: Path, max_attempts: int = 5
+    client: cdsapi.Client,
+    dataset: str,
+    request: dict,
+    target: Path,
+    max_attempts: int = 5,
 ) -> None:
     """Perform a CDS API request with simple retry/backoff logic.
 
@@ -106,7 +110,22 @@ def retrieve_with_retries(
         Local path to write the downloaded file to.
     max_attempts : int, optional
         Maximum number of retrieval attempts.  Defaults to 5.
+        Must be at least 1.
+
+    Raises
+    ------
+    ValueError
+        If ``max_attempts`` is less than 1.
+    RuntimeError
+        If all retry attempts fail but no exception was captured.
+    Exception
+        The last exception encountered if all retry attempts fail.
     """
+    if max_attempts < 1:
+        raise ValueError(
+            f"max_attempts must be at least 1, got max_attempts={max_attempts}"
+        )
+
     last_err: Exception | None = None
     for attempt in range(1, max_attempts + 1):
         try:
@@ -121,7 +140,15 @@ def retrieve_with_retries(
             )
             time.sleep(sleep_seconds)
     # If we exit the loop without returning, raise the last error
-    raise last_err  # type: ignore[arg-type]
+    # Defensive check: last_err should always be set by this point since the loop
+    # executes at least once (validated above) and any failure sets last_err.
+    # This is a safety net in case of unexpected control flow.
+    if last_err is None:
+        raise RuntimeError(
+            f"CDS API retrieval failed after {max_attempts} attempts, "
+            "but no exception was captured."
+        )
+    raise last_err
 
 
 def main() -> None:
