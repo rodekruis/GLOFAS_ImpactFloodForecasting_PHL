@@ -234,6 +234,8 @@ def main() -> None:
             try:
                 target_zip.unlink()
             except Exception:
+                # Ignore deletion errors (e.g., permissions issues); we'll overwrite
+                # the file in the download step anyway.
                 pass
 
         # Build the CDS request for this year
