@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import List, Union
 
 from philflood.domain.config import load_basin_config
-from philflood.domain.basin import BasinConfig
 
 
 def validate_basin_config(config_path: Union[str, Path]) -> List[str]:
