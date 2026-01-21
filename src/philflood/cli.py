@@ -5,7 +5,7 @@ import json
 from datetime import date
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import typer
 
