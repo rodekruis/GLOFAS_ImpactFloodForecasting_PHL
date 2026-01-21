@@ -51,7 +51,9 @@ def _get_pot_extremes(eva: EVA, threshold_m3s: float, r: str) -> pd.Series:
             last_err = e
             continue
     # surface the last signature error if none worked
-    raise last_err
+    if last_err is not None:
+        raise last_err
+    raise RuntimeError("Failed to extract POT extremes with all parameter combinations")
 
 
 def pot_extract(
