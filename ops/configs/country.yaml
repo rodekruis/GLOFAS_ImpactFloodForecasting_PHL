@@ -12,5 +12,37 @@ exposure_dataset: "GHS-POP_2020"
 projection: "EPSG:4326"
 
 basins:
+  # Cagayan sub‑basin configuration (added for Start Ready Philippines)
+  - basin_id: "Cagayan_01"
+    config_file: "ops/configs/basins/Cagayan_01.yaml"
   - basin_id: "example_basin"
     config_file: "ops/configs/basins/example_basin.yaml"
+
+# -----------------------------------------------------------------------------
+# Data provenance and hazard/discharge system versions
+#
+# Start Ready operations require consistent return‑period definitions between
+# the discharge data used for extreme value analysis and the hazard maps used
+# to translate return periods into flood depths.  The following section
+# records the versions of the GloFAS reanalysis/forecasts and the hazard
+# dataset assumed by this project.  These keys are not actively consumed
+# by the code at runtime, but they serve as documentation and can be
+# checked by validation scripts.  See the Riedel et al. (2024) and
+# Copernicus documentation for details.
+
+glofas:
+  # Use GloFAS v4.0 reanalysis and forecast products for calibration and ops.
+  # See https://cds.climate.copernicus.eu for dataset documentation.
+  system_version: "version_4_0"
+  product_type: "consolidated"
+  forecast_system_version: "version_4_0"
+
+hazard_maps:
+  # Use the global river flood hazard maps produced by the JRC/CEMS (dataset
+  # version 2.1.1).  These maps are derived from LISFLOOD/LISFLOOD‑FP
+  # simulations forced by the GloFAS v4.0 hydrological reanalysis.  See the
+  # README distributed with the dataset for details.
+  dataset: "CEMS-GLOFAS_flood_hazard"
+  version: "2.1.1"
+  expected_glofas_version: "4.0"
+  return_periods: [10, 20, 50, 100, 200, 500]

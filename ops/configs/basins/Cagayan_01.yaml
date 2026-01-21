@@ -5,7 +5,7 @@ basin_id: Cagayan_01
 country_iso3: PHL
 # HydroBASINS level and ID must be set according to your basin delineation.
 hydrobasins_level: 7
-hydrobasins_id: 0  # TODO: replace with the actual HydroBASINS ID for this sub‑basin
+hydrobasins_id: 5070113080 
 
 # List of GloFAS station or grid cell identifiers associated with this basin.
 # During calibration you should update this list to include all relevant point IDs.

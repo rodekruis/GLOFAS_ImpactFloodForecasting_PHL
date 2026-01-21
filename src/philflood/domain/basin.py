@@ -34,11 +34,11 @@ class EVTConfig:
         be considered independent events.  This accounts for the
         hydrological response time of the catchment.
     gpd_shape_xi : float
-        The estimated shape parameter :math:`\xi` of the GPD,
+        The estimated shape parameter :math:`\\xi` of the GPD,
         describing tail heaviness.  Positive values indicate a heavy
         tail, values near zero indicate an exponential tail.
     gpd_scale_sigma : float
-        The scale parameter :math:`\sigma_u` of the GPD (in the same
+        The scale parameter :math:`\\sigma_u` of the GPD (in the same
         units as the excesses), controlling the spread of exceedances.
     event_rate_per_year : float
         The average number of independent exceedances per year.  This

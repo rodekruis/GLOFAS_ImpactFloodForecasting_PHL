@@ -1,3 +1,284 @@
+#!/usr/bin/env python3
+"""Download GloFAS historical discharge data via the Copernicus Data API.
+
+This utility wraps the ``cdsapi`` client to automate downloading of
+yearly subsets from the ``cems-glofas-historical`` dataset.  It is
+designed to simplify bulk retrieval of the GloFAS v4.0 hydrological
+reanalysis for a particular spatial bounding box.  Files are stored
+under a deterministic directory structure and extracted on the fly to
+facilitate subsequent processing.
+
+**Important prerequisites**
+
+* Install the ``cdsapi`` Python package (``pip install cdsapi``).
+* Create a ``.cdsapirc`` file with your Copernicus Data Store API key
+  and ensure it points to the EWDS endpoint:
+
+  .. code-block:: yaml
+
+     url: https://ewds.climate.copernicus.eu/api
+     key: <uid>:<api-key>
+
+  By default the cdsapi will look for this file in your home directory.
+  You can override this by setting the ``CDSAPI_RC`` environment
+  variable.
+* Accept the licence for ``cems-glofas-historical`` via the CDS web
+  interface (https://cds.climate.copernicus.eu) before running.
+
+Example
+-------
+
+.. code-block:: bash
+
+    python -m philflood.scripts.download_glofas_historical \
+        --area "18.7,120.6,15.6,122.6" \
+        --start-year 1979 --end-year 2025 \
+        --output data/raw
+
+This will download discharge data for the Cagayan basin bounding box
+into ``data/raw/glofas/historical/version_4_0/consolidated/discharge/grib2/``.
+
+"""
+from __future__ import annotations
+import argparse
+import os
+import random
+import time
+import zipfile
+from pathlib import Path
+from typing import List
+
+import cdsapi
+
+
+def parse_bbox(area_str: str) -> List[float]:
+    """Parse a bounding box string of the form "N,W,S,E".
+
+    Parameters
+    ----------
+    area_str : str
+        Comma‑separated list of four numbers in the order north, west,
+        south, east.  Note that the Copernicus API uses this order.
+
+    Returns
+    -------
+    list of float
+        Parsed values as a list ``[north, west, south, east]``.
+    """
+    parts = [p.strip() for p in area_str.split(",")]
+    if len(parts) != 4:
+        raise ValueError(
+            f"Area must have four comma‑separated values (got {len(parts)})"
+        )
+    return [float(p) for p in parts]
+
+
+def is_valid_zip(path: Path) -> bool:
+    """Check whether a path exists and is a valid ZIP archive."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    try:
+        with zipfile.ZipFile(path, "r") as zf:
+            # Attempt to list a few entries to verify structure
+            _ = zf.namelist()[:1]
+        return True
+    except Exception:
+        return False
+
+
+def retrieve_with_retries(
+    client: cdsapi.Client, dataset: str, request: dict, target: Path, max_attempts: int = 5
+) -> None:
+    """Perform a CDS API request with simple retry/backoff logic.
+
+    In case of transient network errors or server overload, the CDS API
+    may fail sporadically.  This helper wraps ``client.retrieve`` and
+    retries the request a few times with exponential backoff and jitter.
+
+    Parameters
+    ----------
+    client : cdsapi.Client
+        The CDS API client to use for retrieval.
+    dataset : str
+        Identifier of the dataset (e.g. ``"cems-glofas-historical"``).
+    request : dict
+        The request payload as defined in the CDS API documentation.
+    target : Path
+        Local path to write the downloaded file to.
+    max_attempts : int, optional
+        Maximum number of retrieval attempts.  Defaults to 5.
+    """
+    last_err: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            client.retrieve(dataset, request, str(target))
+            return
+        except Exception as exc:
+            last_err = exc
+            sleep_seconds = min(120, 5 * attempt) + random.uniform(0.0, 2.0)
+            print(
+                f"[Attempt {attempt}/{max_attempts}] CDS API error: {exc}\n"
+                f"Retrying in {sleep_seconds:.1f} seconds..."
+            )
+            time.sleep(sleep_seconds)
+    # If we exit the loop without returning, raise the last error
+    raise last_err  # type: ignore[arg-type]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Download GloFAS historical discharge data for a bounding box and year range "
+            "from the cems-glofas-historical dataset."
+        )
+    )
+    parser.add_argument(
+        "--area",
+        required=True,
+        help="Bounding box in 'north,west,south,east' order (degrees).",
+    )
+    parser.add_argument(
+        "--start-year",
+        type=int,
+        required=True,
+        help="First year of data to download (inclusive).",
+    )
+    parser.add_argument(
+        "--end-year",
+        type=int,
+        required=True,
+        help="Last year of data to download (inclusive).",
+    )
+    parser.add_argument(
+        "--output",
+        default="data/raw",
+        type=str,
+        help=(
+            "Root directory into which downloads should be placed.  Files will "
+            "be organised under <output>/glofas/historical/<version>/<product_type>/discharge/grib2/"
+        ),
+    )
+    parser.add_argument(
+        "--system-version",
+        default="version_4_0",
+        type=str,
+        help="GloFAS system version (e.g. 'version_4_0').",
+    )
+    parser.add_argument(
+        "--product-type",
+        default="consolidated",
+        type=str,
+        help="Product type (e.g. 'consolidated').",
+    )
+    parser.add_argument(
+        "--hydrological-model",
+        default="lisflood",
+        type=str,
+        help="Hydrological model (e.g. 'lisflood').",
+    )
+    parser.add_argument(
+        "--variable",
+        default="river_discharge_in_the_last_24_hours",
+        type=str,
+        help="Variable name to request (default: river discharge).",
+    )
+    parser.add_argument(
+        "--dataset",
+        default="cems-glofas-historical",
+        type=str,
+        help="Dataset identifier (default: cems-glofas-historical).",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=5,
+        help="Maximum number of retries for each file download.",
+    )
+    parser.add_argument(
+        "--extract",
+        action="store_true",
+        help="If set, extract the ZIP file into a year‑specific subdirectory after download."
+        ,
+    )
+    args = parser.parse_args()
+
+    # Parse bounding box
+    area = parse_bbox(args.area)
+
+    # Determine output directory
+    base_dir = Path(args.output) / "glofas" / "historical" / args.system_version / args.product_type / "discharge" / "grib2" / (
+        f"area_{area[0]}_{area[1]}_{area[2]}_{area[3]}"
+    )
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    # Instantiate CDS API client
+    client = cdsapi.Client()
+
+    # Precompute months and days for the request (1..12 and 1..31)
+    months = [f"{m:02d}" for m in range(1, 13)]
+    days = [f"{d:02d}" for d in range(1, 32)]
+
+    # Loop over years
+    for year in range(args.start_year, args.end_year + 1):
+        target_zip = base_dir / (
+            f"glofas_historical_{args.system_version}_{args.product_type}_{args.variable}_{year}.zip"
+        )
+        # Skip if a valid ZIP file already exists
+        if is_valid_zip(target_zip):
+            print(f"✓ {year} already downloaded; skipping")
+            continue
+
+        # If an invalid or partial file exists, remove it before retrying
+        if target_zip.exists():
+            print(f"⚠ Removing incomplete or corrupt file for {year}: {target_zip.name}")
+            try:
+                target_zip.unlink()
+            except Exception:
+                pass
+
+        # Build the CDS request for this year
+        request = {
+            "system_version": [args.system_version],
+            "hydrological_model": [args.hydrological_model],
+            "product_type": [args.product_type],
+            "variable": [args.variable],
+            "hyear": [str(year)],
+            "hmonth": months,
+            "hday": days,
+            "data_format": "grib2",
+            "download_format": "zip",
+            "area": area,
+        }
+        print(f"↓ Downloading {year} to {target_zip.name}")
+        try:
+            retrieve_with_retries(
+                client=client,
+                dataset=args.dataset,
+                request=request,
+                target=target_zip,
+                max_attempts=args.max_attempts,
+            )
+        except Exception as err:
+            print(f"❌ Failed to download {year}: {err}")
+            continue
+        print(
+            f"✓ Downloaded {year} ({target_zip.stat().st_size / 1e6:.1f} MB)"
+        )
+        # Optionally extract the archive
+        if args.extract:
+            extract_dir = base_dir / str(year)
+            extract_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                with zipfile.ZipFile(target_zip, "r") as zf:
+                    zf.extractall(extract_dir)
+                print(f"↳ Extracted {year} to {extract_dir}")
+            except Exception as exc:
+                print(f"⚠ Failed to extract {target_zip.name}: {exc}")
+
+
+if __name__ == "__main__":
+    main()
+
 """Utility functions to load GloFAS discharge data for calibration and monitoring.
 
 These helpers hide the details of file formats and storage locations. For
@@ -18,7 +299,6 @@ Example usage::
 
 """
 
-from __future__ import annotations
 
 import datetime as dt
 from pathlib import Path

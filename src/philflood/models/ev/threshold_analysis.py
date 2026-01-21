@@ -1,4 +1,4 @@
-"""Utilities for exploratory threshold analysis in peaks‑over‑threshold (POT) models.
+"""Utilities for exploratory threshold analysis in peaks-over-threshold (POT) models.
 
 This module defines helper functions to support the calibration
 notebooks used to select a suitable threshold for POT analyses.  The
@@ -168,7 +168,7 @@ def gpd_parameter_stability(
     excesses (values above the threshold minus the threshold) are
     computed, and a Generalized Pareto Distribution (GPD) is fitted
     using maximum likelihood estimation (MLE) via ``scipy.stats.genpareto``.
-    The fitted shape (\(\xi\)) and scale (\(\sigma\)) parameters are
+    The fitted shape (\\xi\\) and scale (\\sigma\\) parameters are
     returned as a function of the threshold.  A flat profile of the
     shape parameter across a range of thresholds is indicative of a
     suitable threshold region.
@@ -197,7 +197,7 @@ def gpd_parameter_stability(
     -----
     We fix the location parameter of the GPD at zero by fitting to
     the excesses (``values - threshold``).  This is standard when
-    working in a peaks‑over‑threshold framework.
+    working in a peaks-over-threshold framework.
     """
     thresholds = list(thresholds)
     results: List[Tuple[float, float, float, int]] = []
