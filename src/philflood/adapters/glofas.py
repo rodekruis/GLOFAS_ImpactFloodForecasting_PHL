@@ -123,7 +123,9 @@ def retrieve_with_retries(
         The last exception encountered if all retry attempts fail.
     """
     if max_attempts < 1:
-        raise ValueError(f"max_attempts must be at least 1, got {max_attempts}")
+        raise ValueError(
+            f"max_attempts must be at least 1, got max_attempts={max_attempts}"
+        )
 
     last_err: Exception | None = None
     for attempt in range(1, max_attempts + 1):
@@ -139,6 +141,9 @@ def retrieve_with_retries(
             )
             time.sleep(sleep_seconds)
     # If we exit the loop without returning, raise the last error
+    # Defensive check: last_err should always be set by this point since the loop
+    # executes at least once (validated above) and any failure sets last_err.
+    # This is a safety net in case of unexpected control flow.
     if last_err is None:
         raise RuntimeError(
             f"CDS API retrieval failed after {max_attempts} attempts, "
