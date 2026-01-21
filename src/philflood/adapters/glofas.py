@@ -122,7 +122,12 @@ def retrieve_with_retries(
             )
             time.sleep(sleep_seconds)
     # If we exit the loop without returning, raise the last error
-    raise last_err  # type: ignore[arg-type]
+    if last_err is None:
+        raise RuntimeError(
+            f"CDS API retrieval failed after {max_attempts} attempts, "
+            "but no exception was captured."
+        )
+    raise last_err
 
 
 def main() -> None:
