@@ -1,31 +1,15 @@
-"""Top-level package for the Philippines Flood Trigger project.
+"""PhilFlood utilities for impact-based flood triggers.
 
-This package contains modular code to support both calibration and operational
-components of a riverine flood impact forecasting and trigger system. The
-functions are organised by domain (EVT, hazard, impact, risk, etc.) to make
-the library easy to extend and maintain.  Users of this package should import
-from these modules rather than directly from the notebooks.
+This patch adds a reproducible EVT/POT calibration workflow (GloFAS v4 GRIB -> daily discharge
+-> virtual gauges -> POT extraction -> Poisson rate lambda).
 
-Example::
-
-    from philflood.ev.peaks_over_threshold import extract_declust_pot
-    from philflood.basin import BasinConfig
-
-    # load a configured basin
-    cfg = load_basin_config("ops/configs/basins/example_basin.yaml")
-
-    # extract and decluster peaks
-    peaks = extract_declust_pot(series, cfg.evt.threshold_m3s, cfg.evt.run_length_days)
-
+All geometry is assumed to be in EPSG:4326 (WGS84).
 """
 
 __all__ = [
-    "config",
-    "basin",
-    "data",
-    "ev",
-    "hazard",
-    "impact",
-    "risk",
-    "ops",
+    "utils",
+    "geo",
+    "adapters",
+    "calibration",
+    "qc",
 ]

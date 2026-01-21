@@ -29,8 +29,8 @@ from pathlib import Path
 import json
 import yaml
 
-from philflood.config import dump_basin_config
-from philflood.basin import BasinConfig, EVTConfig, VulnerabilityConfig, TriggerConfig
+from philflood.domain.config import dump_basin_config
+from philflood.domain.basin import BasinConfig, EVTConfig, VulnerabilityConfig, TriggerConfig
 
 
 def generate_basin_yaml(input_path: str, output_path: str) -> None:

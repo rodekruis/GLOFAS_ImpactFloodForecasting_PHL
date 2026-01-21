@@ -22,8 +22,8 @@ import argparse
 from datetime import datetime
 import sys
 
-from philflood.config import load_basin_config
-from philflood.data.glofas_extractor import load_glofas_reanalysis_for_basin
+from philflood.domain.config import load_basin_config
+from philflood.adapters.glofas import load_glofas_reanalysis_for_basin
 from philflood.ev.peaks_over_threshold import extract_declust_pot
 from philflood.ev.gpd_fit import fit_gpd_to_exceedances
 

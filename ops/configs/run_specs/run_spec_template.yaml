@@ -1,0 +1,30 @@
+# Optional run-spec for the operator-friendly calibration notebook.
+# This is additive (does not replace existing basin YAMLs).
+
+run_tag: "2026-01-19_calib"
+analyst_name: "YOUR_NAME"
+
+# Mode toggle
+USE_MUNI_AOI: true
+
+# If USE_MUNI_AOI = true
+municipalities:
+  adm3_ids: ["..."]
+  aoi_buffer_km: 5
+
+# If USE_MUNI_AOI = false
+context_basin:
+  basin_yaml_relpath: "ops/configs/basins/Cagayan_01.yaml"  # legacy basin YAML
+  select_mode: "within"  # within|intersects
+
+# POT extraction defaults
+pot:
+  run_length_days: 5
+  candidate_quantiles: [0.95, 0.97, 0.98, 0.99]
+  default_quantile_for_auto: 0.98
+  auto_allowed_quantiles: [0.95, 0.97, 0.98, 0.99]
+
+# GRIB extraction
+grib:
+  discharge_var: null  # leave null to auto-detect
+  force_rebuild_timeseries: false
