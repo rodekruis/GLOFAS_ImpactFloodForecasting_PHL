@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Optional, Sequence, Tuple, Union
+from typing import Optional, Sequence, Union
 
 try:
     import geopandas as gpd
