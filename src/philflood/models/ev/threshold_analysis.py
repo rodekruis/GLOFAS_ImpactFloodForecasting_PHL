@@ -29,7 +29,6 @@ notebooks under ``calibration/notebooks`` for examples.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Iterable, List, Tuple
 
 import numpy as np
