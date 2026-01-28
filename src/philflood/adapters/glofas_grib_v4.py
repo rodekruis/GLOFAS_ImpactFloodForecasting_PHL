@@ -438,15 +438,17 @@ def load_or_build_gauge_timeseries(
         return cached
 
     # ===== NEW: Incremental write strategy =====
-    # Use temp directory to store partial extractions
+    # Use temp directory to store per-year partial extractions
+    # Strategy: Write one parquet file per gauge per year, then merge once at the end
+    # This avoids O(years²) I/O from repeatedly reading/writing growing partial files
     import tempfile
     import shutil
     
     temp_dir = processed_timeseries_dir / "_temp_extraction"
     temp_dir.mkdir(exist_ok=True)
     
-    # Track which gauges have partial data in temp files
-    partial_files = {gid: temp_dir / f"{gid}_partial.parquet" for gid in missing}
+    # Track year files for each gauge: {gauge_id: [year_file_paths]}
+    gauge_year_files = {gid: [] for gid in missing}
     
     print(f"\n{'='*80}")
     print(f"📥 TIME SERIES EXTRACTION - Processing Summary")
@@ -505,21 +507,18 @@ def load_or_build_gauge_timeseries(
             print(f"        ✓ Extracted {extracted_count} discharge values for {gauge_count} unique gauge(s)")
             logger.info(f"  Extracted {extracted_count} discharge values for {gauge_count} gauges")
             
-            # ===== NEW: Write incrementally to temp files =====
+            # ===== NEW: Write one parquet per gauge per year =====
+            # This avoids O(years²) I/O by writing each year separately
+            # and merging only once at the end
             for gid, sub in long.groupby("virtual_gauge_id"):
                 year_data = sub[["date", "discharge_m3s"]].copy()
-                temp_file = partial_files[gid]
                 
-                if temp_file.exists():
-                    # Append to existing partial file
-                    existing = pd.read_parquet(temp_file)
-                    combined = pd.concat([existing, year_data], ignore_index=True)
-                    combined.to_parquet(temp_file, index=False, compression="snappy")
-                    logger.debug(f"    {gid}: appended {len(year_data)} records (total: {len(combined)})")
-                else:
-                    # Create new partial file
-                    year_data.to_parquet(temp_file, index=False, compression="snappy")
-                    logger.debug(f"    {gid}: created partial file with {len(year_data)} records")
+                # Create a unique file for this gauge and year
+                year_file = temp_dir / f"{gid}_year_{item.year}.parquet"
+                year_data.to_parquet(year_file, index=False, compression="snappy")
+                gauge_year_files[gid].append(year_file)
+                
+                logger.debug(f"    {gid}: wrote {len(year_data)} records for year {item.year}")
             
             # Clear the long dataframe from memory immediately
             del long
@@ -541,20 +540,23 @@ def load_or_build_gauge_timeseries(
             # Force garbage collection to prevent memory buildup
             gc.collect()
 
-    # ===== NEW: Finalize from temp files =====
+    # ===== NEW: Finalize by merging year files =====
     print(f"\n{'='*80}")
-    print(f"💾 FINALIZING - Writing time series to disk")
+    print(f"💾 FINALIZING - Merging year files and writing time series to disk")
     print(f"{'='*80}\n")
     
     final_records_summary = {}
     for gid in missing:
-        temp_file = partial_files[gid]
+        year_files = gauge_year_files[gid]
         
-        if not temp_file.exists():
+        if not year_files:
             raise RuntimeError(f"No discharge values extracted for gauge {gid}")
         
-        logger.debug(f"Finalizing {gid} from temp file")
-        df = pd.read_parquet(temp_file)
+        logger.debug(f"Finalizing {gid} from {len(year_files)} year file(s)")
+        
+        # Read and concatenate all year files for this gauge
+        year_dfs = [pd.read_parquet(yf) for yf in year_files]
+        df = pd.concat(year_dfs, ignore_index=True)
         
         initial_count = len(df)
         df = df.dropna(subset=["discharge_m3s"])
@@ -588,8 +590,9 @@ def load_or_build_gauge_timeseries(
         s.name = "discharge_m3s"
         cached[gid] = s
         
-        # Clean up temp file
-        temp_file.unlink()
+        # Clean up year files for this gauge
+        for year_file in year_files:
+            year_file.unlink(missing_ok=True)
     
     # Remove temp directory
     import shutil
