@@ -47,6 +47,9 @@ def population_weighted_centroid(
         Path to WorldPop raster in EPSG:4326.
     nodata_values:
         Optional tuple of values to treat as nodata in addition to the raster's nodata.
+    top_n_pixels:
+        Optional number of most-populated pixels to use for computing the centroid.
+        Defaults to 100. The total_population in the result reflects only these top N pixels.
 
     Returns
     -------
@@ -104,7 +107,6 @@ def population_weighted_centroid(
         y = out_transform.f + (cc + 0.5) * out_transform.d + (rr + 0.5) * out_transform.e
 
         # Filter to top N most-populated pixels only
-        top_n_pixels = top_n_pixels
         flat_weights = weights.flatten()
         flat_x = x.flatten()
         flat_y = y.flatten()
@@ -123,7 +125,7 @@ def population_weighted_centroid(
         
         if total_pop_filtered <= 0:
             raise RuntimeError(
-                "After filtering to top 100 pixels, no valid population remains. "
+                f"After filtering to top {top_n_pixels} pixels, no valid population remains. "
                 "Try reducing top_n_pixels or check your data."
             )
         
