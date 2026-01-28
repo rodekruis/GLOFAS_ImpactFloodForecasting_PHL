@@ -133,12 +133,7 @@ def population_weighted_centroid(
         
         return WeightedCentroidResult(
             point=Point(xw, yw), 
-            total_population=total_pop_filtered,      # Now reflects top 100 only
+            total_population=total_pop_filtered,      # Sum of top N pixels only
             valid_pixel_count=valid_n_filtered
         )
-
-#        xw = float((x * weights).sum() / total_pop) #Total municipality population
-#        yw = float((y * weights).sum() / total_pop)
-
-        return WeightedCentroidResult(point=Point(xw, yw), total_population=total_pop, valid_pixel_count=valid_n)
 
