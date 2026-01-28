@@ -441,7 +441,6 @@ def load_or_build_gauge_timeseries(
     # Use temp directory to store per-year partial extractions
     # Strategy: Write one parquet file per gauge per year, then merge once at the end
     # This avoids O(years²) I/O from repeatedly reading/writing growing partial files
-    import tempfile
     import shutil
     
     temp_dir = processed_timeseries_dir / "_temp_extraction"
@@ -527,7 +526,6 @@ def load_or_build_gauge_timeseries(
             print(f"        ✗ ERROR: {str(e)[:100]}")
             logger.error(f"  Error processing {item.grib_path}: {e}", exc_info=True)
             # Clean up temp files on error
-            import shutil
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise
         finally:
@@ -550,7 +548,10 @@ def load_or_build_gauge_timeseries(
         year_files = gauge_year_files[gid]
         
         if not year_files:
-            raise RuntimeError(f"No discharge values extracted for gauge {gid}")
+            raise RuntimeError(
+                f"No discharge values extracted for gauge {gid}. This may indicate the gauge is "
+                f"outside the spatial coverage of the GRIB files or all extraction attempts failed."
+            )
         
         logger.debug(f"Finalizing {gid} from {len(year_files)} year file(s)")
         
@@ -595,7 +596,6 @@ def load_or_build_gauge_timeseries(
             year_file.unlink(missing_ok=True)
     
     # Remove temp directory
-    import shutil
     shutil.rmtree(temp_dir, ignore_errors=True)
     
     print(f"{'='*80}")
