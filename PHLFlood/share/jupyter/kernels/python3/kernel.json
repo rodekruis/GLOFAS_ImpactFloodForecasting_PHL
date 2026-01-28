@@ -1,14 +1,3 @@
 {
- "argv": [
-  "python",
-  "-m",
-  "ipykernel_launcher",
-  "-f",
-  "{connection_file}"
- ],
- "display_name": "Python 3 (ipykernel)",
- "language": "python",
- "metadata": {
-  "debugger": true
- }
+ "note": "This repository should not contain environment-specific Jupyter kernel specs. Actual kernel.json files are created and managed by user or CI environments (e.g., via conda or pip-installed ipykernel) and should be excluded from version control."
 }
