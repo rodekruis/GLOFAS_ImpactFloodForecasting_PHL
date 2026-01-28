@@ -177,9 +177,11 @@ class GribGeographicChunker:
             
         Notes
         -----
-        This function assumes coordinate arrays are monotonic (strictly ascending
-        or strictly descending). Non-monotonic coordinates (e.g., wrapping around
-        longitude boundaries) may produce unexpected results.
+        This function detects coordinate order by comparing the first and last values.
+        Coordinates are treated as ascending if first <= last, and descending otherwise.
+        The function assumes coordinate arrays are monotonic (consistently increasing or
+        decreasing). Non-monotonic coordinates (e.g., wrapping around longitude boundaries
+        or irregular ordering) may produce unexpected results.
         """
         min_lat, max_lat, min_lon, max_lon = bbox
         
