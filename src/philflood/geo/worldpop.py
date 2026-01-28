@@ -49,8 +49,8 @@ def population_weighted_centroid(
         Optional tuple of values to treat as nodata in addition to the raster's nodata.
     top_n_pixels:
         Optional int (>= 1) to limit centroid calculation to the N most-populated pixels.
-        If None, all valid pixels are used. Value is clamped to available pixel count.
-        Default is 100.
+        If None, all valid pixels are used. Value is clamped to available positive-weight 
+        pixel count. Default is 100.
 
     Returns
     -------
@@ -125,10 +125,10 @@ def population_weighted_centroid(
             
             # Clamp to available valid pixels
             n_valid = valid_weights.size
-            top_n_pixels = min(top_n_pixels, n_valid)
+            actual_n_pixels = min(top_n_pixels, n_valid)
             
             # Find indices of top N pixels by population
-            top_indices = np.argsort(valid_weights)[-top_n_pixels:]
+            top_indices = np.argsort(valid_weights)[-actual_n_pixels:]
             
             # Keep only top pixels
             weights_filtered = valid_weights[top_indices]
