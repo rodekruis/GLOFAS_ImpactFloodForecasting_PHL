@@ -129,13 +129,17 @@ def merge_yearly_temps_to_gauge_files(
 ) -> Dict[str, pd.Series]:
     """Merge yearly temp files into per-gauge parquet files using streaming.
     
-    This function uses a truly constant-memory approach by:
-    1. Processing each temp file once with groupby (O(rows) per file)
-    2. Appending to per-gauge files incrementally (no accumulation)
-    3. Reading final gauge files to create Series dict
+    This function uses a two-pass approach optimized for constant memory:
+    1. First pass: Write per-gauge intermediate files (one per temp file per gauge)
+    2. Second pass: Concatenate intermediate files for each gauge, sort, and dedupe
     
-    Memory usage: Constant - only one temp file + one gauge group in memory at a time
-    Time complexity: O(files × rows) instead of O(gauges × files × rows)
+    This avoids the O(files²) read problem by only reading each intermediate file once.
+    
+    Memory usage: O(single gauge total data) during final concatenation
+    Time complexity: O(files × rows) for streaming + 
+        O(gauges × rows_per_gauge × log(rows_per_gauge)) for sorting
+    I/O complexity: O(files × gauges) writes + O(gauges) final reads - 
+        linear, not quadratic
     
     Parameters
     ----------
@@ -156,41 +160,40 @@ def merge_yearly_temps_to_gauge_files(
         f"{len(gauge_ids)} gauge files..."
     )
     
+    # Convert to set for O(1) lookups
+    gauge_ids_set = set(gauge_ids)
+    
+    # Create intermediate directory for per-gauge-per-year files
+    intermediate_dir = output_dir / "_intermediate"
+    intermediate_dir.mkdir(exist_ok=True)
+    
     # Track which gauges we've seen data for
     gauges_with_data = set()
     
-    # Process each temp file, streaming to per-gauge outputs
+    # PASS 1: Split each temp file into per-gauge intermediate files
+    logger.debug("  Pass 1: Writing per-gauge intermediate files...")
     for i, temp_file in enumerate(temp_files, 1):
-        logger.debug(f"  Processing temp file {i}/{len(temp_files)}: {temp_file.name}")
+        logger.debug(
+            f"    Processing temp file {i}/{len(temp_files)}: "
+            f"{temp_file.name}"
+        )
         
         try:
             df = pd.read_parquet(temp_file)
             
             # Group by gauge once per file (efficient!)
             for gid, gauge_df in df.groupby("virtual_gauge_id"):
-                if gid not in gauge_ids:
+                if gid not in gauge_ids_set:
                     continue
                 
                 gauges_with_data.add(gid)
-                output_file = output_dir / f"{gid}.parquet"
                 
-                # Extract only the columns we need
-                data_to_write = gauge_df[["date", "discharge_m3s"]].copy()
-                
-                # Append to existing file or create new one
-                if output_file.exists():
-                    # Read existing, combine, dedupe, and write back
-                    existing = pd.read_parquet(output_file)
-                    combined = pd.concat([existing, data_to_write], ignore_index=True)
-                    combined = combined.sort_values("date").drop_duplicates(
-                        subset=["date"], keep="first"
-                    )
-                    combined.to_parquet(output_file, index=False, compression="snappy")
-                else:
-                    # First write for this gauge
-                    data_to_write.to_parquet(
-                        output_file, index=False, compression="snappy"
-                    )
+                # Write to intermediate file (one per gauge per temp file)
+                # This avoids reading previous data
+                intermediate_file = intermediate_dir / f"{gid}_{temp_file.stem}.parquet"
+                gauge_df[["date", "discharge_m3s"]].to_parquet(
+                    intermediate_file, index=False, compression="snappy"
+                )
             
             # Free memory immediately
             del df
@@ -200,35 +203,69 @@ def merge_yearly_temps_to_gauge_files(
             logger.error(f"  ✗ ERROR reading {temp_file.name}: {e}")
             continue
     
-    # Load final gauge files into Series dict
-    logger.info(f"  Loading {len(gauges_with_data)} gauge files into memory...")
+    # PASS 2: Merge intermediate files for each gauge
+    logger.debug(
+        f"  Pass 2: Merging intermediates for "
+        f"{len(gauges_with_data)} gauges..."
+    )
     series_by_gauge = {}
     
     for gid in gauges_with_data:
-        output_file = output_dir / f"{gid}.parquet"
+        # Find all intermediate files for this gauge
+        intermediate_files = list(intermediate_dir.glob(f"{gid}_*.parquet"))
+        
+        if not intermediate_files:
+            logger.warning(f"  ⚠ No intermediate files for gauge {gid}")
+            continue
         
         try:
-            df = pd.read_parquet(output_file)
+            # Read all intermediate files for this gauge
+            dfs = [pd.read_parquet(f) for f in intermediate_files]
+            
+            # Concatenate, sort, and deduplicate
+            combined = pd.concat(dfs, ignore_index=True)
+            combined = combined.sort_values("date").drop_duplicates(
+                subset=["date"], keep="first"
+            )
+            
+            # Write final gauge file
+            output_file = output_dir / f"{gid}.parquet"
+            combined.to_parquet(output_file, index=False, compression="snappy")
+            
+            # Create Series for return value
             series = pd.Series(
-                df["discharge_m3s"].values,
-                index=pd.to_datetime(df["date"]),
+                combined["discharge_m3s"].values,
+                index=pd.to_datetime(combined["date"]),
                 name="discharge_m3s",
             )
             series_by_gauge[gid] = series
+            
             logger.debug(
                 f"  ✓ {gid}: {len(series)} days, "
                 f"{series.index.min().date()} to {series.index.max().date()}"
             )
+            
+            # Free memory
+            del dfs, combined
+            gc.collect()
+            
         except Exception as e:
-            logger.error(f"  ✗ ERROR loading {gid}: {e}")
+            logger.error(f"  ✗ ERROR merging gauge {gid}: {e}")
             continue
+    
+    # Cleanup intermediate files
+    logger.debug("  Cleaning up intermediate files...")
+    for f in intermediate_dir.glob("*.parquet"):
+        f.unlink()
+    intermediate_dir.rmdir()
     
     # Warn about gauges with no data
     missing_gauges = set(gauge_ids) - gauges_with_data
     if missing_gauges:
+        suffix = "..." if len(missing_gauges) > 5 else ""
         logger.warning(
             f"  ⚠ No data for {len(missing_gauges)} gauges: "
-            f"{sorted(missing_gauges)[:5]}..."
+            f"{sorted(missing_gauges)[:5]}{suffix}"
         )
     
     logger.info(f"✓ Merge complete: {len(series_by_gauge)} gauges")
