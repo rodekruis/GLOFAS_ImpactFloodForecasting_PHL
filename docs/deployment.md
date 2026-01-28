@@ -1,52 +1,216 @@
 # Deployment Guide
 
-**Production deployment options for PhilFlood IBF pipeline**
-
-This guide covers different deployment strategies for running the PhilFlood operational pipeline in production environments.
-
----
-
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [Local Scheduled Deployment](#local-scheduled-deployment)
-3. [Docker Deployment](#docker-deployment)
-4. [Cloud Deployment (Azure/AWS)](#cloud-deployment)
-5. [Monitoring & Alerting](#monitoring--alerting)
-6. [Security Considerations](#security-considerations)
-
----
+This guide covers running PhilFlood operationally in production environments.
 
 ## Prerequisites
 
-✅ Completed calibration for all basins  
+✅ Completed calibration for one or more basins  
 ✅ Basin configs validated with `philflood validate`  
 ✅ Access to GloFAS forecast data  
 ✅ Tested monitoring on historical dates  
 
----
+## Operational Monitoring
 
-## Local Scheduled Deployment
+### CLI: Run Monitoring
 
-### Option 1: Windows Task Scheduler
+The primary tool for operational deployment is the `philflood monitor` command.
 
-**Step 1:** Create a batch script `run_monitoring.bat`:
+#### Basic Usage
+
+```bash
+# Monitor all basins for today
+philflood monitor --basin-dir ops/configs/basins
+
+# Monitor specific basin for specific date
+philflood monitor --basin "ops/configs/basins/example_basin.yaml" --date 2025-12-15
+
+# Output as JSON (for integration with early warning systems)
+philflood monitor --basin-dir ops/configs/basins --format json --output today.json
+
+# Strict mode (fail if any basin validation fails)
+philflood monitor --basin-dir ops/configs/basins --strict
+```
+
+#### Output Formats
+
+**CSV Output** (default):
+```
+basin_name,forecast_date,lead_time_days,impact_prob,impact_threshold,triggered,confidence
+example_basin,2026-01-28,3,0.45,500000,False,medium
+```
+
+**JSON Output** (for programmatic integration):
+```json
+{
+  "metadata": {
+    "run_timestamp": "2026-01-28T12:00:00Z",
+    "basins_processed": 1,
+    "basins_triggered": 0
+  },
+  "results": [
+    {
+      "basin_name": "example_basin",
+      "forecast_date": "2026-01-28",
+      "lead_time_days": 3,
+      "impact_probability": 0.45,
+      "impact_threshold": 500000,
+      "triggered": false,
+      "confidence": "medium"
+    }
+  ]
+}
+```
+
+## Scheduled Monitoring
+
+### Windows: Task Scheduler
+
+**Step 1**: Create batch script `run_monitoring.bat`
 
 ```batch
 @echo off
 cd C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL
 call venv\Scripts\activate.bat
-philflood monitor --basin-dir ops\configs\basins --output logs\monitoring_%date:~-4,4%%date:~-10,2%%date:~-7,2%.json --format json
+
+REM Run monitoring and capture output
+philflood monitor ^
+    --basin-dir ops\configs\basins ^
+    --format json ^
+    --output logs\monitoring_%date:~-4,4%%date:~-10,2%%date:~-7,2%.json
+
+REM Log any errors
 if errorlevel 1 (
-    echo Monitoring failed >> logs\errors.log
+    echo Monitoring failed at %date% %time% >> logs\monitoring_errors.log
+    exit /b 1
 )
+
+exit /b 0
 ```
 
-**Step 2:** Schedule in Task Scheduler:
-- Open Task Scheduler → Create Basic Task
-- Name: "PhilFlood Daily Monitoring"
-- Trigger: Daily at 06:00
-- Action: Start Program → `C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL\run_monitoring.bat`
+**Step 2**: Schedule task
+
+1. Open Task Scheduler → Create Basic Task
+2. Name: "PhilFlood Daily Monitoring"
+3. Trigger: Daily at 06:00 AM
+4. Action: Start Program → `C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL\run_monitoring.bat`
+5. Set user account with sufficient permissions
+6. Check "Run whether user is logged in or not"
+
+**Verification**:
+```batch
+REM Test script manually first
+run_monitoring.bat
+
+REM Check output
+type logs\monitoring_*.json | find /i "triggered"
+```
+
+### Linux/macOS: Cron
+
+**Step 1**: Create script `run_monitoring.sh`
+
+```bash
+#!/bin/bash
+set -e
+
+REPO_DIR="/opt/philflood"
+LOG_DIR="$REPO_DIR/logs"
+DATE=$(date +%Y%m%d)
+
+mkdir -p "$LOG_DIR"
+
+# Activate environment
+source "$REPO_DIR/venv/bin/activate"
+
+# Run monitoring
+philflood monitor \
+    --basin-dir "$REPO_DIR/ops/configs/basins" \
+    --format json \
+    --output "$LOG_DIR/monitoring_$DATE.json" \
+    2>&1 | tee -a "$LOG_DIR/monitoring.log"
+
+# Alert if triggered
+if grep -q '"triggered": true' "$LOG_DIR/monitoring_$DATE.json"; then
+    echo "⚠️ FLOOD TRIGGER ACTIVATED - check logs" >> "$LOG_DIR/alerts.log"
+fi
+
+exit 0
+```
+
+**Step 2**: Register in crontab
+
+```bash
+chmod +x /opt/philflood/run_monitoring.sh
+
+# Edit crontab
+crontab -e
+
+# Add line: Run daily at 06:00 UTC
+0 6 * * * /opt/philflood/run_monitoring.sh
+
+# Verify cron job
+crontab -l
+```
+
+## Configuration Validation
+
+Before deployment, validate all basin configurations:
+
+```bash
+# Validate all basins
+philflood validate --basins ops/configs/basins
+
+# Validate specific basin
+philflood validate --basins ops/configs/basins/my_basin.yaml
+```
+
+## Performance Tuning
+
+### Memory Usage
+
+Monitoring typically uses 100-150 MB per basin. For batch processing:
+
+```bash
+# Process basins sequentially (safe for 4 GB RAM)
+philflood monitor --basin-dir ops/configs/basins --sequential
+
+# Process in parallel (faster, higher memory)
+philflood monitor --basin-dir ops/configs/basins --parallel --max-workers 4
+```
+
+### Processing Speed
+
+- **Single basin**: ~5 seconds (network dependent)
+- **10 basins**: ~1 minute
+- **50 basins**: ~5 minutes
+
+Speed is primarily limited by GloFAS data download time.
+
+## Production Checklist
+
+Before going live:
+
+- [ ] Calibration completed and validated for all basins
+- [ ] All basin configs validated with `philflood validate`
+- [ ] GloFAS data access credentials configured
+- [ ] Scheduled monitoring tested on historical dates
+- [ ] Log rotation configured (prevent disk fill)
+- [ ] Alert notifications tested (email, SMS, etc.)
+- [ ] Backup strategy documented (config + logs)
+- [ ] Team trained on alert interpretation and response
+- [ ] Documentation updated for local team
+
+## Troubleshooting
+
+| Issue | Cause | Solution |
+|---|---|---|
+| "Connection timeout" | GloFAS data server unreachable | Retry in 1 hour; check network connectivity |
+| "No data for date" | Forecast not yet released | GloFAS releases forecasts 6-12 hrs after issue |
+| "Invalid basin config" | Threshold values unrealistic | Re-run calibration; check EVT parameters |
+| "Memory exhausted" | Too many basins in parallel | Reduce `--max-workers` or increase system RAM |
+| "Trigger stuck on" | Forecast quality issue | Manually review forecast data; may need threshold adjustment |
+
+---
 
 ### Option 2: Linux Cron
 

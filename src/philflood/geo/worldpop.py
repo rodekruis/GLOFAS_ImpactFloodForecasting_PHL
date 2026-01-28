@@ -30,6 +30,7 @@ def population_weighted_centroid(
     polygon,
     worldpop_raster_path: Union[str, Path],
     nodata_values: Optional[tuple] = None,
+    top_n_pixels: Optional[int] = 100,
 ) -> WeightedCentroidResult:
     """Compute a population-weighted centroid inside a polygon.
 
@@ -102,7 +103,42 @@ def population_weighted_centroid(
         x = out_transform.c + (cc + 0.5) * out_transform.a + (rr + 0.5) * out_transform.b
         y = out_transform.f + (cc + 0.5) * out_transform.d + (rr + 0.5) * out_transform.e
 
-        xw = float((x * weights).sum() / total_pop)
-        yw = float((y * weights).sum() / total_pop)
+        # Filter to top N most-populated pixels only
+        top_n_pixels = top_n_pixels
+        flat_weights = weights.flatten()
+        flat_x = x.flatten()
+        flat_y = y.flatten()
+        
+        # Find indices of top N pixels by population
+        top_indices = np.argsort(flat_weights)[-top_n_pixels:]
+        
+        # Keep only top pixels
+        weights_filtered = flat_weights[top_indices]
+        x_filtered = flat_x[top_indices]
+        y_filtered = flat_y[top_indices]
+        
+        # Recalculate total with filtered weights
+        total_pop_filtered = float(weights_filtered.sum())
+        valid_n_filtered = int((weights_filtered > 0).sum())
+        
+        if total_pop_filtered <= 0:
+            raise RuntimeError(
+                "After filtering to top 100 pixels, no valid population remains. "
+                "Try reducing top_n_pixels or check your data."
+            )
+        
+        # Compute weighted centroid using only top pixels
+        xw = float((x_filtered * weights_filtered).sum() / total_pop_filtered)
+        yw = float((y_filtered * weights_filtered).sum() / total_pop_filtered)
+        
+        return WeightedCentroidResult(
+            point=Point(xw, yw), 
+            total_population=total_pop_filtered,      # Now reflects top 100 only
+            valid_pixel_count=valid_n_filtered
+        )
+
+#        xw = float((x * weights).sum() / total_pop) #Total municipality population
+#        yw = float((y * weights).sum() / total_pop)
 
         return WeightedCentroidResult(point=Point(xw, yw), total_population=total_pop, valid_pixel_count=valid_n)
+
