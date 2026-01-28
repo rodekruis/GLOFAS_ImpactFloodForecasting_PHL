@@ -153,7 +153,9 @@ def merge_yearly_temps_to_gauge_files(
     Returns
     -------
     Dict[str, pd.Series]
-        Dictionary mapping gauge_id → daily discharge Series
+        Dictionary mapping gauge_id → daily discharge Series.
+        Note: All gauge data is loaded into memory for the return value.
+        For very large deployments, this can consume significant memory.
     """
     logger.info(
         f"📊 Merging {len(temp_files)} yearly files into "
@@ -164,7 +166,11 @@ def merge_yearly_temps_to_gauge_files(
     gauge_ids_set = set(gauge_ids)
     
     # Create intermediate directory for per-gauge-per-year files
+    # Clean it first to avoid stale files from previous failed runs
     intermediate_dir = output_dir / "_intermediate"
+    if intermediate_dir.exists():
+        import shutil
+        shutil.rmtree(intermediate_dir)
     intermediate_dir.mkdir(exist_ok=True)
     
     # Track which gauges we've seen data for
@@ -197,11 +203,22 @@ def merge_yearly_temps_to_gauge_files(
             
             # Free memory immediately
             del df
-            gc.collect()
             
         except Exception as e:
             logger.error(f"  ✗ ERROR reading {temp_file.name}: {e}")
             continue
+    
+    # Check if we have any data to merge
+    if not gauges_with_data:
+        logger.error("  ✗ No data extracted from any temp files!")
+        # Cleanup empty intermediate directory
+        try:
+            import shutil
+            if intermediate_dir.exists():
+                shutil.rmtree(intermediate_dir)
+        except Exception:
+            pass
+        return {}
     
     # PASS 2: Merge intermediate files for each gauge
     logger.debug(
@@ -247,17 +264,26 @@ def merge_yearly_temps_to_gauge_files(
             
             # Free memory
             del dfs, combined
-            gc.collect()
             
         except Exception as e:
             logger.error(f"  ✗ ERROR merging gauge {gid}: {e}")
+            # Clean up partial output file if it exists
+            output_file = output_dir / f"{gid}.parquet"
+            if output_file.exists():
+                try:
+                    output_file.unlink()
+                except Exception:
+                    pass
             continue
     
-    # Cleanup intermediate files
+    # Cleanup intermediate files and directory
     logger.debug("  Cleaning up intermediate files...")
-    for f in intermediate_dir.glob("*.parquet"):
-        f.unlink()
-    intermediate_dir.rmdir()
+    try:
+        import shutil
+        if intermediate_dir.exists():
+            shutil.rmtree(intermediate_dir)
+    except Exception as e:
+        logger.warning(f"  ⚠ Failed to cleanup intermediate directory: {e}")
     
     # Warn about gauges with no data
     missing_gauges = set(gauge_ids) - gauges_with_data
