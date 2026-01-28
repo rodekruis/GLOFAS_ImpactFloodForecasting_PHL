@@ -43,6 +43,8 @@ def _cleanup_eva_memory(eva: EVA) -> None:
             try:
                 setattr(eva, attr, None)
             except Exception:
+                # Some EVA attributes may be read-only or have restrictive setters;
+                # continue cleanup of remaining attributes even if one fails
                 pass
     
     # Force garbage collection
