@@ -174,20 +174,28 @@ class GribGeographicChunker:
         -------
         xr.Dataset
             Clipped dataset
+            
+        Notes
+        -----
+        This function assumes coordinate arrays are monotonic (strictly ascending
+        or strictly descending). Non-monotonic coordinates (e.g., wrapping around
+        longitude boundaries) may produce unexpected results.
         """
         min_lat, max_lat, min_lon, max_lon = bbox
         
         # Detect coordinate order for latitude
         lat_coords = ds[lat_col].values
         if len(lat_coords) > 1:
-            lat_ascending = lat_coords[0] < lat_coords[-1]
+            # Use <= to handle edge case where first == last (treat as ascending)
+            lat_ascending = lat_coords[0] <= lat_coords[-1]
         else:
             lat_ascending = True  # Default to ascending for single value
         
         # Detect coordinate order for longitude
         lon_coords = ds[lon_col].values
         if len(lon_coords) > 1:
-            lon_ascending = lon_coords[0] < lon_coords[-1]
+            # Use <= to handle edge case where first == last (treat as ascending)
+            lon_ascending = lon_coords[0] <= lon_coords[-1]
         else:
             lon_ascending = True  # Default to ascending for single value
         
