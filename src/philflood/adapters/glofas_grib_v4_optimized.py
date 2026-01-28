@@ -68,7 +68,7 @@ def extract_daily_discharge_with_memory_safety(
         Long-format extraction with columns [date, virtual_gauge_id, discharge_m3s]
     """
     _require_xr()
-    
+
     from philflood.adapters.glofas_grib_v4 import (
         infer_lat_lon_names,
         infer_time_name,
