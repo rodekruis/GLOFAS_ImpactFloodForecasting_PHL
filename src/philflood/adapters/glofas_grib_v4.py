@@ -442,8 +442,8 @@ def load_or_build_gauge_timeseries(
     import tempfile
     import shutil
     
-    temp_dir = processed_timeseries_dir / "_temp_extraction"
-    temp_dir.mkdir(exist_ok=True)
+    # Create a unique temp directory per run to avoid mixing partial results from crashed runs
+    temp_dir = Path(tempfile.mkdtemp(dir=processed_timeseries_dir, prefix="_temp_extraction_"))
     
     # Track which gauges have partial data in temp files
     partial_files = {gid: temp_dir / f"{gid}_partial.parquet" for gid in missing}
