@@ -198,6 +198,7 @@ def cells_within_polygon(
         where idx/idy are the array indices in the GRIB grid.
     """
     _require_xr()
+    from shapely.geometry import Point
     import logging
     logger = logging.getLogger(__name__)
     
@@ -209,7 +210,6 @@ def cells_within_polygon(
     cells = []
     for i, lat in enumerate(lats):
         for j, lon in enumerate(lons):
-            from shapely.geometry import Point
             pt = Point(lon, lat)
             if polygon.contains(pt) or polygon.touches(pt) or polygon.intersects(pt):
                 cells.append({
