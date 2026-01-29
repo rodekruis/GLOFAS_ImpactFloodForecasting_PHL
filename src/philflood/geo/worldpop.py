@@ -176,7 +176,7 @@ def population_weighted_centroid(
         
         return WeightedCentroidResult(
             point=Point(xw, yw), 
-            total_population=total_pop_filtered,      # Population sum of filtered pixels (top N or all)
-            valid_pixel_count=valid_n_filtered        # Count of filtered pixels used
+            total_population=total_pop_filtered,      # Sum of population in pixels used for centroid calculation
+            valid_pixel_count=valid_n_filtered        # Count of valid (positive population) pixels used
         )
 
