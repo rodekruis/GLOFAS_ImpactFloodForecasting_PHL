@@ -21,6 +21,21 @@ except Exception:  # pragma: no cover
 
 @dataclass(frozen=True)
 class WeightedCentroidResult:
+    """Result of population-weighted centroid calculation.
+    
+    Attributes
+    ----------
+    point : Point
+        The computed population-weighted centroid (lon, lat).
+    total_population : float
+        Sum of population in pixels used for centroid calculation.
+        When top_n_pixels is specified, this is the sum of only the top N pixels.
+        When top_n_pixels is None, this is the sum of all valid pixels in the polygon.
+    valid_pixel_count : int
+        Number of valid (positive population) pixels used in centroid calculation.
+        When top_n_pixels is specified, this is min(top_n_pixels, available_valid_pixels).
+        When top_n_pixels is None, this is the count of all valid pixels in the polygon.
+    """
     point: "Point"
     total_population: float
     valid_pixel_count: int
@@ -30,6 +45,7 @@ def population_weighted_centroid(
     polygon,
     worldpop_raster_path: Union[str, Path],
     nodata_values: Optional[tuple] = None,
+    top_n_pixels: Optional[int] = 100,
 ) -> WeightedCentroidResult:
     """Compute a population-weighted centroid inside a polygon.
 
@@ -46,11 +62,20 @@ def population_weighted_centroid(
         Path to WorldPop raster in EPSG:4326.
     nodata_values:
         Optional tuple of values to treat as nodata in addition to the raster's nodata.
+    top_n_pixels:
+        Optional int (>= 1) to limit centroid calculation to the N most-populated pixels.
+        If None, all valid pixels are used. Value is clamped to available positive-weight 
+        pixel count. Default is 100.
 
     Returns
     -------
     WeightedCentroidResult
-        point is a shapely Point (lon, lat).
+        Contains the computed centroid point and population statistics.
+        - point: shapely Point (lon, lat) representing the population-weighted centroid
+        - total_population: sum of population in pixels used for calculation
+          (filtered by top_n_pixels if provided, otherwise all valid pixels)
+        - valid_pixel_count: number of pixels used in calculation
+          (filtered by top_n_pixels if provided, otherwise all valid pixels)
     """
     if rasterio is None or mask is None:
         raise ImportError("rasterio is required to compute the population-weighted centroid")
@@ -102,7 +127,56 @@ def population_weighted_centroid(
         x = out_transform.c + (cc + 0.5) * out_transform.a + (rr + 0.5) * out_transform.b
         y = out_transform.f + (cc + 0.5) * out_transform.d + (rr + 0.5) * out_transform.e
 
-        xw = float((x * weights).sum() / total_pop)
-        yw = float((y * weights).sum() / total_pop)
+        # Filter to top N most-populated pixels only (if requested)
+        flat_weights = weights.flatten()
+        flat_x = x.flatten()
+        flat_y = y.flatten()
+        
+        # Validate and clamp top_n_pixels
+        if top_n_pixels is not None:
+            if top_n_pixels < 1:
+                raise ValueError(f"top_n_pixels must be >= 1, got {top_n_pixels}")
+            
+            # Filter to only positive-weight pixels before selecting top N
+            valid_mask = flat_weights > 0
+            valid_weights = flat_weights[valid_mask]
+            valid_x = flat_x[valid_mask]
+            valid_y = flat_y[valid_mask]
+            
+            # Clamp to available valid pixels
+            n_valid = valid_weights.size
+            actual_n_pixels = min(top_n_pixels, n_valid)
+            
+            # Find indices of top N pixels by population
+            top_indices = np.argsort(valid_weights)[-actual_n_pixels:]
+            
+            # Keep only top pixels
+            weights_filtered = valid_weights[top_indices]
+            x_filtered = valid_x[top_indices]
+            y_filtered = valid_y[top_indices]
+        else:
+            # No filtering: use all pixels (including zeros for consistency)
+            weights_filtered = flat_weights
+            x_filtered = flat_x
+            y_filtered = flat_y
+        
+        # Compute weighted centroid using filtered pixels
+        total_pop_filtered = float(weights_filtered.sum())
+        valid_n_filtered = int((weights_filtered > 0).sum())
+        
+        if total_pop_filtered <= 0:
+            raise RuntimeError(
+                f"After filtering to top {top_n_pixels} pixels, no valid population remains. "
+                "Try reducing top_n_pixels or check your data."
+            )
+        
+        # Compute weighted centroid using only top pixels
+        xw = float((x_filtered * weights_filtered).sum() / total_pop_filtered)
+        yw = float((y_filtered * weights_filtered).sum() / total_pop_filtered)
+        
+        return WeightedCentroidResult(
+            point=Point(xw, yw), 
+            total_population=total_pop_filtered,      # Sum of population in pixels used for centroid calculation
+            valid_pixel_count=valid_n_filtered        # Count of valid (positive population) pixels used
+        )
 
-        return WeightedCentroidResult(point=Point(xw, yw), total_population=total_pop, valid_pixel_count=valid_n)

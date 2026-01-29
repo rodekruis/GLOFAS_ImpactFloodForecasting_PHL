@@ -1,8 +1,6 @@
-# QuickStart Guide
+# Quick Start Guide
 
-**Get up and running with PhilFlood in 15 minutes**
-
-This guide will help you install PhilFlood, validate your setup, and run your first monitoring check. Designed for humanitarian practitioners and operations teams.
+Get PhilFlood running in 15 minutes. This guide covers installation, verification, and your first calibration run.
 
 ---
 

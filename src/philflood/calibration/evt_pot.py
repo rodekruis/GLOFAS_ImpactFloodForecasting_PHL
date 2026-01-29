@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -26,6 +27,26 @@ def _require_pyextremes():
         raise ImportError(
             "pyextremes is required for POT extraction. Install with: pip install pyextremes"
         )
+
+
+def _cleanup_eva_memory(eva: EVA) -> None:
+    """Clear memory-heavy EVA attributes after use to prevent accumulation."""
+    if eva is None:
+        return
+    
+    # Clear internal EVA model and cache data
+    for attr in ['model', 'extremes', '_extremes', '_samples']:
+        if hasattr(eva, attr):
+            try:
+                setattr(eva, attr, None)
+            except Exception:
+                # Some EVA attributes may be read-only or have restrictive setters;
+                # continue cleanup of remaining attributes even if one fails
+                pass
+    
+    # Force garbage collection
+    gc.collect()
+
 
 
 def _build_eva(series: pd.Series) -> EVA:
@@ -64,6 +85,8 @@ def pot_extract(
     """Extract declustered POT extremes using pyextremes EVA.
 
     Uses EVA.get_extremes(method='POT', threshold=..., r='5D').
+    
+    Note: EVA model objects are cleaned up after use to prevent memory accumulation.
     """
     _require_pyextremes()
 
@@ -78,52 +101,56 @@ def pot_extract(
     r = f"{int(run_length_days)}D"
 
     eva = _build_eva(s)
-    extremes = _get_pot_extremes(eva, threshold_m3s=threshold_m3s, r=r)
+    try:
+        extremes = _get_pot_extremes(eva, threshold_m3s=threshold_m3s, r=r)
 
-    if extremes is None or len(extremes) == 0:
-        # No events above threshold
-        coverage_years = float(len(s) / 365.25)
-        annual = pd.DataFrame({"year": [], "n_events": []})
-        return POTResult(
-            threshold_m3s=float(threshold_m3s),
-            run_length_days=int(run_length_days),
-            lambda_events_per_year=0.0,
-            coverage_years=coverage_years,
-            events=pd.DataFrame({"date": [], "discharge_m3s": []}),
-            annual_counts=annual,
-        )
+        if extremes is None or len(extremes) == 0:
+            # No events above threshold
+            coverage_years = float(len(s) / 365.25)
+            annual = pd.DataFrame({"year": [], "n_events": []})
+            return POTResult(
+                threshold_m3s=float(threshold_m3s),
+                run_length_days=int(run_length_days),
+                lambda_events_per_year=0.0,
+                coverage_years=coverage_years,
+                events=pd.DataFrame({"date": [], "discharge_m3s": []}),
+                annual_counts=annual,
+            )
 
-    # Normalize extremes to a clean two-column DataFrame: date, discharge_m3s
-    if isinstance(extremes, pd.Series):
-        ev_series = extremes.copy()
-        ev_series.index = pd.to_datetime(ev_series.index)
-        ev = pd.DataFrame({"date": ev_series.index, "discharge_m3s": ev_series.values})
-    else:
-        ev = extremes.copy()
+        # Normalize extremes to a clean two-column DataFrame: date, discharge_m3s
+        if isinstance(extremes, pd.Series):
+            ev_series = extremes.copy()
+            ev_series.index = pd.to_datetime(ev_series.index)
+            ev = pd.DataFrame({"date": ev_series.index, "discharge_m3s": ev_series.values})
+        else:
+            ev = extremes.copy()
         ev.index = pd.to_datetime(ev.index)
         discharge_col = "discharge_m3s" if "discharge_m3s" in ev.columns else ev.columns[0]
         ev = pd.DataFrame({"date": ev.index, "discharge_m3s": ev[discharge_col].values})
 
-    ev = ev.sort_values("date")
+        ev = ev.sort_values("date")
 
-    # Coverage years (based on observed days with data)
-    coverage_years = float(len(s) / 365.25)
-    if coverage_years <= 0:
-        raise RuntimeError("coverage_years computed as 0; check time series length")
+        # Coverage years (based on observed days with data)
+        coverage_years = float(len(s) / 365.25)
+        if coverage_years <= 0:
+            raise RuntimeError("coverage_years computed as 0; check time series length")
 
-    ev["year"] = ev["date"].dt.year
-    annual_counts = ev.groupby("year").size().rename("n_events").reset_index()
+        ev["year"] = ev["date"].dt.year
+        annual_counts = ev.groupby("year").size().rename("n_events").reset_index()
 
-    lambda_hat = float(len(ev) / coverage_years)
+        lambda_hat = float(len(ev) / coverage_years)
 
-    return POTResult(
-        threshold_m3s=float(threshold_m3s),
-        run_length_days=int(run_length_days),
-        lambda_events_per_year=lambda_hat,
-        coverage_years=coverage_years,
-        events=ev[["date", "discharge_m3s"]].copy(),
-        annual_counts=annual_counts,
-    )
+        return POTResult(
+            threshold_m3s=float(threshold_m3s),
+            run_length_days=int(run_length_days),
+            lambda_events_per_year=lambda_hat,
+            coverage_years=coverage_years,
+            events=ev[["date", "discharge_m3s"]].copy(),
+            annual_counts=annual_counts,
+        )
+    finally:
+        # Clean up EVA model to prevent memory accumulation
+        _cleanup_eva_memory(eva)
 
 
 def fit_gpd_to_pot(
@@ -137,6 +164,8 @@ def fit_gpd_to_pot(
     threshold + declustered events + lambda.
 
     Returns None if fitting fails.
+    
+    Note: EVA model objects are cleaned up after use to prevent memory accumulation.
     """
     _require_pyextremes()
 
@@ -145,9 +174,8 @@ def fit_gpd_to_pot(
     r = f"{int(run_length_days)}D"
 
     eva = _build_eva(s)
-    _get_pot_extremes(eva, threshold_m3s=threshold_m3s, r=r)
-
     try:
+        _get_pot_extremes(eva, threshold_m3s=threshold_m3s, r=r)
         eva.fit_model(distribution="genpareto")
         # pyextremes stores fit params on eva.model; expose in a stable way.
         params = getattr(eva, "model", None)
@@ -176,3 +204,6 @@ def fit_gpd_to_pot(
         return None
     except Exception:
         return None
+    finally:
+        # Clean up EVA model to prevent memory accumulation
+        _cleanup_eva_memory(eva)

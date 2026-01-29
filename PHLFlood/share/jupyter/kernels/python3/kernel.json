@@ -1,0 +1,3 @@
+{
+ "note": "Stub kernel spec placeholder. This repository should not contain environment-specific Jupyter kernel specs or the PHLFlood/ environment directory. Actual kernel.json files are created and managed by user or CI environments (for example via conda or pip-installed ipykernel) and must not be committed. Remove PHLFlood/ from version control and add PHLFlood/ (or an appropriate pattern) to .gitignore so that real environment artifacts are ignored."
+}
