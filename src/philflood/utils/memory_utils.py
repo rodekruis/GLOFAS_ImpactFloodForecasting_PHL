@@ -156,6 +156,9 @@ class GribGeographicChunker:
                             lat_col: str = 'latitude', lon_col: str = 'longitude'):
         """Clip an xarray dataset to a geographic bounding box.
         
+        Handles both ascending and descending coordinate orders by detecting
+        the monotonicity of the coordinates and adjusting slice bounds accordingly.
+        
         Parameters
         ----------
         ds : xr.Dataset
@@ -171,13 +174,49 @@ class GribGeographicChunker:
         -------
         xr.Dataset
             Clipped dataset
+            
+        Notes
+        -----
+        This function detects coordinate order by comparing the first and last values.
+        Coordinates are treated as ascending if first <= last, and descending otherwise.
+        The function assumes coordinate arrays are monotonic (consistently increasing or
+        decreasing). Non-monotonic coordinates (e.g., wrapping around longitude boundaries
+        or irregular ordering) may produce unexpected results.
         """
         min_lat, max_lat, min_lon, max_lon = bbox
         
+        # Detect coordinate order for latitude
+        lat_coords = ds[lat_col].values
+        if len(lat_coords) > 1:
+            # Use <= to handle edge case where first == last (treat as ascending)
+            lat_ascending = lat_coords[0] <= lat_coords[-1]
+        else:
+            lat_ascending = True  # Default to ascending for single value
+        
+        # Detect coordinate order for longitude
+        lon_coords = ds[lon_col].values
+        if len(lon_coords) > 1:
+            # Use <= to handle edge case where first == last (treat as ascending)
+            lon_ascending = lon_coords[0] <= lon_coords[-1]
+        else:
+            lon_ascending = True  # Default to ascending for single value
+        
+        # For slice(), bounds must be in the same order as the coordinate
+        # If descending, swap the slice bounds
+        if lat_ascending:
+            lat_slice = slice(min_lat, max_lat)
+        else:
+            lat_slice = slice(max_lat, min_lat)
+        
+        if lon_ascending:
+            lon_slice = slice(min_lon, max_lon)
+        else:
+            lon_slice = slice(max_lon, min_lon)
+        
         # Clip to bounding box
         clipped = ds.sel({
-            lat_col: slice(min_lat, max_lat),
-            lon_col: slice(min_lon, max_lon)
+            lat_col: lat_slice,
+            lon_col: lon_slice
         })
         
         return clipped
