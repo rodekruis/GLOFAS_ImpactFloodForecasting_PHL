@@ -18,6 +18,9 @@ except Exception:  # pragma: no cover
 warnings.filterwarnings("ignore", category=UserWarning, message=".*g2date.*unpack.*")
 warnings.filterwarnings("ignore", category=RuntimeWarning, message=".*g2date.*unpack.*")
 
+# Default return periods for flood forecasting (in years)
+DEFAULT_RETURN_PERIODS = [1, 2, 5, 10, 20, 50, 100, 200, 500]
+
 
 @dataclass(frozen=True)
 class GribInventoryItem:
@@ -806,13 +809,13 @@ def write_return_period_netcdf(
                     logger.warning(f"Return level file not found: {rl_file.name}, using placeholder")
                     # Fallback: repeat the discharge value
                     if return_period_values is None:
-                        return_period_values = [1, 2, 5, 10, 20, 50, 100]  # Default RPs
+                        return_period_values = DEFAULT_RETURN_PERIODS
                     discharge_for_rps = [gauges_data[gid].get('discharge_m3s', None) for _ in return_period_values]
                     discharge_2d.append(discharge_for_rps)
     
     # If no parquet files, use default return periods and repeat the discharge value
     if return_period_values is None:
-        return_period_values = [1, 2, 5, 10, 20, 50, 100, 200, 500]  # Default RPs if not found
+        return_period_values = DEFAULT_RETURN_PERIODS
         discharge_2d = []
         for gid in gauge_ids:
             discharge_for_rps = [gauges_data[gid].get('discharge_m3s', None) for _ in return_period_values]
