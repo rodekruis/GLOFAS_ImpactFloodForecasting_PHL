@@ -819,6 +819,17 @@ def write_return_period_netcdf(
             discharge_2d.append(discharge_for_rps)
     
     # Create xarray Dataset with return_period as a dimension
+    # Validate that discharge_2d matches the expected shape: (n_gauge, n_return_period)
+    expected_gauges = len(gauge_ids)
+    expected_rps = len(return_period_values) if return_period_values is not None else 0
+    actual_gauges = len(discharge_2d)
+    if actual_gauges != expected_gauges or any(len(row) != expected_rps for row in discharge_2d):
+        raise ValueError(
+            f"Mismatch between discharge_2d shape and coordinates: "
+            f"got {actual_gauges} gauges with return period lengths "
+            f"{[len(row) for row in discharge_2d]}, expected "
+            f"{expected_gauges} gauges and {expected_rps} return periods."
+        )
     ds = xr.Dataset(
         data_vars={
             'latitude': (('gauge',), lats, {'units': 'degrees_north', 'long_name': 'Latitude'}),
