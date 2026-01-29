@@ -184,14 +184,12 @@ def nearest_grid_cell(ds: "xr.Dataset", lat: float, lon: float) -> Tuple[float, 
 def cells_within_polygon(
     ds: "xr.Dataset",
     polygon,
-    discharge_var: Optional[str] = None,
 ) -> pd.DataFrame:
     """Extract all GloFAS grid cell centers that intersect a polygon.
     
     Args:
         ds: xarray Dataset (opened GRIB)
         polygon: shapely.geometry.Polygon (in EPSG:4326)
-        discharge_var: Variable name in dataset (None = auto-detect)
     
     Returns:
         DataFrame with columns: [cell_lat, cell_lon, cell_idx, cell_idy]
