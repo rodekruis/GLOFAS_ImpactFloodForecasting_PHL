@@ -28,11 +28,6 @@ from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
-try:
-    import xarray as xr
-except ImportError:
-    xr = None
-
 from philflood.adapters.glofas_grib_v4 import (
     GribInventoryItem,
     extract_daily_discharge_for_points,
