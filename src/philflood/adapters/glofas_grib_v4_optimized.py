@@ -85,6 +85,14 @@ def extract_daily_discharge_with_memory_safety(
     if not can_continue:
         raise RuntimeError(f"Insufficient memory: {msg}")
     
+    # Validate gauge_batch_size
+    if gauge_batch_size < 1:
+        raise ValueError(
+            f"gauge_batch_size must be >= 1, got {gauge_batch_size}. "
+            f"This parameter controls how many gauges are processed simultaneously. "
+            f"Use smaller values (e.g., 2-4) to reduce memory usage, or larger values for speed."
+        )
+    
     logger.info(f"Starting memory-safe extraction with gauge_batch_size={gauge_batch_size}")
     
     if points.empty:
