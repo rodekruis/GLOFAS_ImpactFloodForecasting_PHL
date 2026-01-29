@@ -234,10 +234,11 @@ def extract_daily_discharge_for_cells(
     lon_col: str = "cell_lon",
     discharge_var: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Extract discharge for all grid cells in a basin, returning aggregated time series.
+    """Extract discharge for all grid cells in a basin, returning per-cell time series.
     
-    Extracts discharge for all cells and returns mean discharge per timestep.
-    This preserves the spatial information by storing lat/lon for each extraction.
+    Extracts discharge for all cells and returns discharge values for all cells at each timestep
+    without aggregation. This preserves the spatial information by storing lat/lon for each
+    extraction.
     
     Args:
         ds: xarray Dataset (opened GRIB)
