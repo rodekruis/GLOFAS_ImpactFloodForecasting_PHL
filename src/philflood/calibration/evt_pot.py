@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import gc
-import logging
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -11,8 +10,6 @@ try:
     from pyextremes import EVA
 except Exception:  # pragma: no cover
     EVA = None
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
