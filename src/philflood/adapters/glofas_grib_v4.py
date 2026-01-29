@@ -211,7 +211,7 @@ def cells_within_polygon(
         for j, lon in enumerate(lons):
             from shapely.geometry import Point
             pt = Point(lon, lat)
-            if polygon.contains(pt) or polygon.touches(pt) or polygon.intersects(pt):
+            if polygon.intersects(pt):
                 cells.append({
                     'cell_lat': float(lat),
                     'cell_lon': float(lon),
