@@ -17,6 +17,11 @@ from philflood.utils.memory_utils import MemoryMonitor, GribGeographicChunker
 logger = logging.getLogger(__name__)
 
 
+def _require_xr():
+    if xr is None:
+        raise ImportError("xarray is required to read GRIB files")
+
+
 def extract_daily_discharge_with_memory_safety(
     ds: "xr.Dataset",
     points: pd.DataFrame,
@@ -62,6 +67,8 @@ def extract_daily_discharge_with_memory_safety(
     pd.DataFrame
         Long-format extraction with columns [date, virtual_gauge_id, discharge_m3s]
     """
+    _require_xr()
+
     from philflood.adapters.glofas_grib_v4 import (
         infer_lat_lon_names,
         infer_time_name,
@@ -77,6 +84,14 @@ def extract_daily_discharge_with_memory_safety(
     print(msg)
     if not can_continue:
         raise RuntimeError(f"Insufficient memory: {msg}")
+    
+    # Validate gauge_batch_size
+    if gauge_batch_size < 1:
+        raise ValueError(
+            f"gauge_batch_size must be >= 1, got {gauge_batch_size}. "
+            f"This parameter controls how many gauges are processed simultaneously. "
+            f"Use smaller values (e.g., 2-4) to reduce memory usage, or larger values for speed."
+        )
     
     logger.info(f"Starting memory-safe extraction with gauge_batch_size={gauge_batch_size}")
     
