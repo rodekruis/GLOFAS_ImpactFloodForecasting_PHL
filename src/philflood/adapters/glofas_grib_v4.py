@@ -439,9 +439,6 @@ def load_or_build_gauge_timeseries(
 
     # ===== NEW: Incremental write strategy =====
     # Use temp directory to store partial extractions
-    import tempfile
-    import shutil
-    
     temp_dir = processed_timeseries_dir / "_temp_extraction"
     temp_dir.mkdir(exist_ok=True)
     
