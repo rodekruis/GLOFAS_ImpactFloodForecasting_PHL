@@ -142,12 +142,21 @@ def population_weighted_centroid(
         
         # Compute weighted centroid using filtered pixels
         total_pop_filtered = float(weights_filtered.sum())
+        valid_n_filtered = int((weights_filtered > 0).sum())
+        
+        if total_pop_filtered <= 0:
+            raise RuntimeError(
+                f"After filtering to top {top_n_pixels} pixels, no valid population remains. "
+                "Try reducing top_n_pixels or check your data."
+            )
+        
+        # Compute weighted centroid using only top pixels
         xw = float((x_filtered * weights_filtered).sum() / total_pop_filtered)
         yw = float((y_filtered * weights_filtered).sum() / total_pop_filtered)
         
         return WeightedCentroidResult(
             point=Point(xw, yw), 
-            total_population=total_pop_filtered,
-            valid_pixel_count=int((weights_filtered > 0).sum())
+            total_population=total_pop_filtered,      # Sum of top N pixels only
+            valid_pixel_count=valid_n_filtered
         )
 
