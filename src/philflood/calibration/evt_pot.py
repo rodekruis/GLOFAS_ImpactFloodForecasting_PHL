@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import gc
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import pandas as pd
@@ -20,6 +20,8 @@ class POTResult:
     coverage_years: float
     events: pd.DataFrame  # columns: date, discharge_m3s
     annual_counts: pd.DataFrame  # year, n_events
+    extraction_method: str = "pour_point"  # "pour_point" or "cell_level"
+    extraction_metadata: dict = field(default_factory=dict)  # Optional: additional metadata
 
 
 def _require_pyextremes():
@@ -81,10 +83,19 @@ def pot_extract(
     discharge_series: pd.Series,
     threshold_m3s: float,
     run_length_days: int = 5,
+    extraction_method: str = "pour_point",
+    extraction_metadata: Optional[dict] = None,
 ) -> POTResult:
     """Extract declustered POT extremes using pyextremes EVA.
 
     Uses EVA.get_extremes(method='POT', threshold=..., r='5D').
+    
+    Args:
+        discharge_series: Time series of discharge values
+        threshold_m3s: POT threshold
+        run_length_days: Declustering interval (days)
+        extraction_method: "pour_point" or "cell_level"
+        extraction_metadata: Optional dict with additional context (e.g., n_cells, coordinates)
     
     Note: EVA model objects are cleaned up after use to prevent memory accumulation.
     """
@@ -115,6 +126,8 @@ def pot_extract(
                 coverage_years=coverage_years,
                 events=pd.DataFrame({"date": [], "discharge_m3s": []}),
                 annual_counts=annual,
+                extraction_method=extraction_method,
+                extraction_metadata=extraction_metadata or {},
             )
 
         # Normalize extremes to a clean two-column DataFrame: date, discharge_m3s
@@ -147,6 +160,8 @@ def pot_extract(
             coverage_years=coverage_years,
             events=ev[["date", "discharge_m3s"]].copy(),
             annual_counts=annual_counts,
+            extraction_method=extraction_method,
+            extraction_metadata=extraction_metadata or {},
         )
     finally:
         # Clean up EVA model to prevent memory accumulation

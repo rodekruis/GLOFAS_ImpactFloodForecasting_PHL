@@ -94,25 +94,49 @@ philflood validate ops/configs/basins/my_basin.yaml
 
 ### 5.1 Launch Jupyter for Interactive Calibration
 
+The main calibration notebook is **01_evt_pot_calibration_workflow.ipynb**:
+
 ```powershell
-jupyter notebook calibration/notebooks/01_evt_threshold_basin_X.ipynb
+jupyter notebook calibration/notebooks/01_evt_pot_calibration_workflow.ipynb
 ```
 
-### 5.2 Work Through Calibration Notebooks
+### 5.2 Calibration Features
 
-Follow these notebooks in order:
+#### Cell-Level Extraction (Optional Advanced Feature)
+Instead of using just the pour point (outlet), you can extract discharge from **all GloFAS grid cells within the basin polygon**:
 
-1. **[01_evt_threshold_basin_X.ipynb](../calibration/notebooks/01_evt_threshold_basin_X.ipynb)** - Select POT threshold
-2. **[02_evt_threshold_basin_X_gpd_fit.ipynb](../calibration/notebooks/02_evt_threshold_basin_X_gpd_fit.ipynb)** - Fit GPD parameters
-3. **[10_synthetic_impacts_AEP_OEP.ipynb](../calibration/notebooks/10_synthetic_impacts_AEP_OEP.ipynb)** - Calculate risk metrics
+```python
+# Add this in Section 1 (after USE_MUNI_AOI):
+USE_CELL_EXTRACTION = True   # False = pour point (default), True = all cells
+```
 
-### 5.3 Generate Operational Config
+**When to use:**
+- ✅ Maximum spatial detail needed
+- ✅ Multiple discharge estimates per basin  
+- ✅ Analyze local vs. outlet variations
+- ❌ For quick testing, use default (False)
+
+#### NetCDF Output (Automatic)
+The notebook automatically generates `return-period.nc` containing:
+- Return periods for each gauge (1, 2, 5, 10, 20, 50, 100, 200, 500 years)
+- Discharge (m³/s) at each return period
+- Latitude, longitude, and metadata
+- CF-compliant format (readable by QGIS, xarray, GIS tools)
+
+### 5.3 Run Through Calibration Sections
+
+The workflow has 49 sections:
+- **Sections 1–4**: Configuration and setup
+- **Sections 5–8**: Virtual gauge extraction (automated for cell-level)
+- **Sections 9–12**: POT threshold selection, GPD fitting, synthetic catalog
+- **Section 13**: NetCDF generation (automatic)
+
+### 5.4 Generate Operational Config
 
 After calibration, save parameters to your basin config:
 
 ```powershell
 # Update your basin YAML with calibrated parameters
-# You can do this manually or use the generation script
 python calibration/scripts/generate_basin_config_from_calibration.py \
     --input calibration/output/my_basin_results.yaml \
     --output ops/configs/basins/my_basin.yaml
