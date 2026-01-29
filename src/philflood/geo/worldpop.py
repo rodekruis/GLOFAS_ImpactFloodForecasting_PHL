@@ -21,6 +21,21 @@ except Exception:  # pragma: no cover
 
 @dataclass(frozen=True)
 class WeightedCentroidResult:
+    """Result of population-weighted centroid calculation.
+    
+    Attributes
+    ----------
+    point : Point
+        The computed population-weighted centroid (lon, lat).
+    total_population : float
+        Sum of population in pixels used for centroid calculation.
+        When top_n_pixels is specified, this is the sum of only the top N pixels.
+        When top_n_pixels is None, this is the sum of all valid pixels in the polygon.
+    valid_pixel_count : int
+        Number of valid (positive population) pixels used in centroid calculation.
+        When top_n_pixels is specified, this is min(top_n_pixels, available_valid_pixels).
+        When top_n_pixels is None, this is the count of all valid pixels in the polygon.
+    """
     point: "Point"
     total_population: float
     valid_pixel_count: int
@@ -55,7 +70,12 @@ def population_weighted_centroid(
     Returns
     -------
     WeightedCentroidResult
-        point is a shapely Point (lon, lat).
+        Contains the computed centroid point and population statistics.
+        - point: shapely Point (lon, lat) representing the population-weighted centroid
+        - total_population: sum of population in pixels used for calculation
+          (filtered by top_n_pixels if provided, otherwise all valid pixels)
+        - valid_pixel_count: number of pixels used in calculation
+          (filtered by top_n_pixels if provided, otherwise all valid pixels)
     """
     if rasterio is None or mask is None:
         raise ImportError("rasterio is required to compute the population-weighted centroid")
@@ -156,7 +176,7 @@ def population_weighted_centroid(
         
         return WeightedCentroidResult(
             point=Point(xw, yw), 
-            total_population=total_pop_filtered,      # Sum of top N pixels only
-            valid_pixel_count=valid_n_filtered
+            total_population=total_pop_filtered,      # Population sum of filtered pixels (top N or all)
+            valid_pixel_count=valid_n_filtered        # Count of filtered pixels used
         )
 
