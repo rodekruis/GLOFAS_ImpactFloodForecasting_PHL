@@ -129,6 +129,11 @@ def merge_yearly_temps_to_gauge_files(
     efficient because it processes one year at a time and writes
     immediately without accumulating data.
     
+    Performance characteristics:
+    - Time: O(N×G) file I/O operations where N=years, G=gauges
+    - Memory: O(max_year_size) - only one year in memory at a time
+    - Trade-off: Slower due to repeated file I/O, but prevents memory crashes
+    
     Parameters
     ----------
     temp_files : List[Path]
@@ -142,8 +147,17 @@ def merge_yearly_temps_to_gauge_files(
     -------
     Dict[str, pd.Series]
         Dictionary mapping gauge_id → daily discharge Series
+        
+    Notes
+    -----
+    The finalization step loads each gauge's full dataset for sorting and
+    deduplication, so individual gauges with very large datasets may still
+    require significant memory.
     """
     logger.info(f"📊 Merging {len(temp_files)} yearly files into {len(gauge_ids)} gauge files...")
+    
+    # Convert to set for O(1) membership checks
+    gauge_ids_set = set(gauge_ids)
     
     # Track which gauges have received data
     gauges_with_data = set()
@@ -157,8 +171,8 @@ def merge_yearly_temps_to_gauge_files(
             
             # Use groupby for efficient single-pass splitting by gauge
             for gid, gauge_df in df.groupby("virtual_gauge_id"):
-                # Only process gauges we care about
-                if gid not in gauge_ids:
+                # Only process gauges we care about (O(1) lookup)
+                if gid not in gauge_ids_set:
                     continue
                 
                 gauges_with_data.add(gid)
@@ -168,14 +182,21 @@ def merge_yearly_temps_to_gauge_files(
                 
                 # Append to per-gauge file incrementally
                 output_file = output_dir / f"{gid}.parquet"
-                if output_file.exists():
-                    # Append to existing file
-                    existing = pd.read_parquet(output_file)
-                    combined = pd.concat([existing, gauge_data], ignore_index=True)
-                    combined.to_parquet(output_file, index=False, compression="snappy")
-                else:
-                    # Create new file
-                    gauge_data.to_parquet(output_file, index=False, compression="snappy")
+                try:
+                    if output_file.exists():
+                        # Append to existing file
+                        existing = pd.read_parquet(output_file)
+                        combined = pd.concat([existing, gauge_data], ignore_index=True)
+                        combined.to_parquet(output_file, index=False, compression="snappy")
+                    else:
+                        # Create new file
+                        gauge_data.to_parquet(output_file, index=False, compression="snappy")
+                except Exception as e:
+                    logger.error(f"  ✗ ERROR writing gauge file {gid}: {e}")
+                    # Remove corrupted file if it exists
+                    if output_file.exists():
+                        output_file.unlink()
+                    raise
             
             # Free memory immediately
             del df
@@ -194,23 +215,31 @@ def merge_yearly_temps_to_gauge_files(
             logger.warning(f"  ⚠ No data for gauge {gid}")
             continue
         
-        # Read the accumulated file
-        output_file = output_dir / f"{gid}.parquet"
-        combined = pd.read_parquet(output_file)
-        
-        # Sort and deduplicate
-        combined = combined.sort_values("date").drop_duplicates(subset=["date"], keep="first")
-        
-        # Overwrite with cleaned data
-        combined.to_parquet(output_file, index=False, compression="snappy")
-        
-        # Create Series for return value
-        series = pd.Series(
-            combined["discharge_m3s"].values,
-            index=pd.to_datetime(combined["date"]),
-            name="discharge_m3s",
-        )
-        series_by_gauge[gid] = series
+        try:
+            # Read the accumulated file
+            output_file = output_dir / f"{gid}.parquet"
+            combined = pd.read_parquet(output_file)
+            
+            # Sort and deduplicate
+            combined = combined.sort_values("date").drop_duplicates(subset=["date"], keep="first")
+            
+            # Overwrite with cleaned data
+            combined.to_parquet(output_file, index=False, compression="snappy")
+            
+            # Create Series for return value
+            series = pd.Series(
+                combined["discharge_m3s"].values,
+                index=pd.to_datetime(combined["date"]),
+                name="discharge_m3s",
+            )
+            series_by_gauge[gid] = series
+            
+        except Exception as e:
+            logger.error(f"  ✗ ERROR finalizing gauge {gid}: {e}")
+            # Remove corrupted file
+            if output_file.exists():
+                output_file.unlink()
+            continue
         
         logger.debug(f"  ✓ {gid}: {len(series)} days, {series.index.min().date()} to {series.index.max().date()}")
     
