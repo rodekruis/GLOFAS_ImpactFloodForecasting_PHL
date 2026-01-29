@@ -438,10 +438,7 @@ def load_or_build_gauge_timeseries(
         return cached
 
     # ===== NEW: Incremental write strategy =====
-    # Use temp directory to store partial extractions
-    import tempfile
-    import shutil
-    
+    # Use temp directory to store partial extractions    
     # Create a unique temp directory per run to avoid mixing partial results from crashed runs
     temp_dir = Path(tempfile.mkdtemp(dir=processed_timeseries_dir, prefix="_temp_extraction_"))
     
