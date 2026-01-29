@@ -13,19 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 #### Added - Streaming GRIB Extraction
 
-- **`src/philflood/adapters/glofas_grib_streaming.py`** (360 lines)
-  - `extract_year_to_parquet()`: Single-year extraction to temporary parquet files
-  - `merge_yearly_temp_files()`: Memory-efficient merging of yearly data
-  - `load_or_build_gauge_timeseries_streaming()`: Main orchestrator with checkpoint/resume
+- **`src/philflood/adapters/glofas_grib_streaming.py`**
+  - Streaming-based extraction of single-year GRIB data to temporary parquet outputs
+  - Memory-efficient merging of yearly data into long historical time series
+  - Orchestrated processing with checkpoint/resume to recover from interruptions
   - Reduces peak memory usage from 1.8 GB to ~31 MB (94% reduction)
   - Enables processing of full 47-year historical dataset (1979-2025) without crashes
 
 #### Added - Memory Optimization Infrastructure
 
-- **`src/philflood/utils/memory_utils.py`** (155 lines)
-  - `MemoryMonitor` class: Real-time RAM tracking with warnings and graceful shutdown
-  - `GribGeographicChunking` class: Clips GRIB grids to relevant geographic areas (70% size reduction)
-  - `ParquetIncrementalWriter` class: Streaming parquet writes without full concatenation
+- **`src/philflood/utils/memory_utils.py`**
+  - Utilities for real-time RAM tracking, warnings, and graceful shutdown under pressure
+  - Helpers for clipping GRIB grids to relevant geographic areas (up to ~70% size reduction)
+  - Support for streaming parquet writes without full in-memory concatenation
 
 - **`src/philflood/adapters/glofas_grib_v4_optimized.py`** (230 lines)
   - Drop-in replacement for `load_or_build_gauge_timeseries()`
