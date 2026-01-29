@@ -4,6 +4,8 @@ import logging
 import warnings
 from pathlib import Path
 from typing import Optional, Tuple
+import tempfile
+import shutil
 
 try:
     import psutil
@@ -11,6 +13,15 @@ try:
 except ImportError:
     HAS_PSUTIL = False
     psutil = None
+
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    HAS_PYARROW = True
+except ImportError:
+    HAS_PYARROW = False
+    pa = None
+    pq = None
 
 logger = logging.getLogger(__name__)
 
@@ -223,19 +234,29 @@ class GribGeographicChunker:
 
 
 class ParquetIncrementalWriter:
-    """Efficiently append rows to parquet files without reading entire file."""
+    """Memory-efficient parquet file operations using pyarrow's batch processing."""
     
     @staticmethod
     def append_to_parquet(filepath: Path, data_df, compression: str = 'snappy') -> int:
         """
-        Append data to an existing parquet file or create new one.
+        Append data to an existing parquet file using batch processing for memory efficiency.
+        
+        This implementation uses pyarrow.parquet.ParquetFile.iter_batches() to read
+        existing data in small batches (default 10,000 rows) rather than loading the
+        entire file into memory at once. The data is written to a temporary file and
+        then atomically moved to replace the original.
+        
+        While this approach still reads and rewrites the entire file, it does so in
+        a memory-efficient manner by streaming batches through Arrow's zero-copy
+        memory model, significantly reducing peak memory usage compared to loading
+        the full DataFrame into pandas.
         
         Parameters
         ----------
         filepath : Path
             Path to parquet file
         data_df : pd.DataFrame
-            Data to append (must have same schema as existing file if it exists)
+            Data to append (must have compatible schema with existing file if it exists)
         compression : str
             Compression algorithm ('snappy', 'gzip', 'brotli', or None)
         
@@ -243,25 +264,86 @@ class ParquetIncrementalWriter:
         -------
         int
             Total number of rows after append
+        
+        Raises
+        ------
+        ValueError
+            If schema compatibility cannot be resolved
+        RuntimeError
+            If append operation fails and fallback cannot be performed
         """
-        import pandas as pd
+        if not HAS_PYARROW:
+            raise RuntimeError(
+                "pyarrow is required for ParquetIncrementalWriter but is not installed. "
+                "Install with: pip install pyarrow>=14.0"
+            )
+        
+        # Convert DataFrame to Arrow Table
+        table = pa.Table.from_pandas(data_df, preserve_index=False)
         
         if filepath.exists():
+            # Read existing file's metadata to get schema and row count
+            existing_file = pq.ParquetFile(str(filepath))
+            existing_schema = existing_file.schema_arrow
+            existing_rows = existing_file.metadata.num_rows
+            
+            # Validate schema compatibility and cast if needed
+            if not table.schema.equals(existing_schema, check_metadata=False):
+                try:
+                    table = table.cast(existing_schema)
+                    logger.info(f"Successfully cast new data to match existing schema for {filepath}")
+                except Exception as cast_error:
+                    raise ValueError(
+                        f"Schema mismatch when appending to {filepath} and automatic "
+                        f"casting failed. Error: {cast_error}"
+                    ) from cast_error
+            
+            # Create a temporary file for the combined parquet
+            with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.parquet') as tmp_file:
+                tmp_path = tmp_file.name
+            
             try:
-                # Read existing file
-                existing = pd.read_parquet(filepath)
-                # Concatenate
-                combined = pd.concat([existing, data_df], ignore_index=True)
-                # Write back
-                combined.to_parquet(filepath, index=False, compression=compression)
-                total_rows = len(combined)
+                # Use ParquetWriter to write both existing and new data in batches
+                with pq.ParquetWriter(
+                    tmp_path,
+                    existing_schema,
+                    compression=compression,
+                    version='2.6',
+                ) as writer:
+                    # Write existing data in batches to control memory usage
+                    for batch in existing_file.iter_batches(batch_size=10000):
+                        writer.write_batch(batch)
+                    
+                    # Write new data
+                    writer.write_table(table)
+                
+                # Replace original file with new file (atomic on most systems)
+                shutil.move(tmp_path, str(filepath))
+                total_rows = existing_rows + len(data_df)
+                
             except Exception as e:
-                logger.warning(f"Failed to append to {filepath}: {e}. Writing as new file.")
-                data_df.to_parquet(filepath, index=False, compression=compression)
-                total_rows = len(data_df)
+                # Clean up temp file if it still exists
+                if Path(tmp_path).exists():
+                    Path(tmp_path).unlink()
+                
+                # Only attempt fallback if original file still exists
+                if filepath.exists():
+                    logger.error(
+                        f"Failed to append to {filepath}: {e}. "
+                        f"Original file is intact but append failed."
+                    )
+                    raise RuntimeError(
+                        f"Failed to append data to {filepath}. Original file is intact."
+                    ) from e
+                else:
+                    # Original file was moved/deleted - this is critical
+                    raise RuntimeError(
+                        f"Critical error: append failed and original file {filepath} "
+                        f"was lost. Data may be in temporary file: {tmp_path}"
+                    ) from e
         else:
             # Create new file
-            data_df.to_parquet(filepath, index=False, compression=compression)
+            pq.write_table(table, str(filepath), compression=compression, version='2.6')
             total_rows = len(data_df)
         
         return total_rows

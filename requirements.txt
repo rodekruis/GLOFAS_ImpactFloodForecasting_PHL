@@ -14,6 +14,9 @@ scipy>=1.9
 # System monitoring
 psutil>=5.9
 
+# Data I/O
+pyarrow>=14.0
+
 # Geospatial
 geopandas>=0.14
 shapely>=2.0
