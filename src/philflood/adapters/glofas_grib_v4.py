@@ -181,6 +181,127 @@ def nearest_grid_cell(ds: "xr.Dataset", lat: float, lon: float) -> Tuple[float, 
     return lat0, lon0
 
 
+def cells_within_polygon(
+    ds: "xr.Dataset",
+    polygon,
+    discharge_var: Optional[str] = None,
+) -> pd.DataFrame:
+    """Extract all GloFAS grid cell centers that intersect a polygon.
+    
+    Args:
+        ds: xarray Dataset (opened GRIB)
+        polygon: shapely.geometry.Polygon (in EPSG:4326)
+        discharge_var: Variable name in dataset (None = auto-detect)
+    
+    Returns:
+        DataFrame with columns: [cell_lat, cell_lon, cell_idx, cell_idy]
+        where idx/idy are the array indices in the GRIB grid.
+    """
+    _require_xr()
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    lat_name, lon_name = infer_lat_lon_names(ds)
+    lats = ds[lat_name].values
+    lons = ds[lon_name].values
+    
+    # Build a list of cell centers that intersect the polygon
+    cells = []
+    for i, lat in enumerate(lats):
+        for j, lon in enumerate(lons):
+            from shapely.geometry import Point
+            pt = Point(lon, lat)
+            if polygon.contains(pt) or polygon.touches(pt) or polygon.intersects(pt):
+                cells.append({
+                    'cell_lat': float(lat),
+                    'cell_lon': float(lon),
+                    'cell_idx': int(i),
+                    'cell_idy': int(j),
+                })
+    
+    if not cells:
+        logger.warning(f"No grid cells found within polygon bounds")
+        return pd.DataFrame(columns=['cell_lat', 'cell_lon', 'cell_idx', 'cell_idy'])
+    
+    return pd.DataFrame(cells)
+
+
+def extract_daily_discharge_for_cells(
+    ds: "xr.Dataset",
+    cells: pd.DataFrame,
+    basin_id: Union[int, str],
+    lat_col: str = "cell_lat",
+    lon_col: str = "cell_lon",
+    discharge_var: Optional[str] = None,
+) -> pd.DataFrame:
+    """Extract discharge for all grid cells in a basin, returning aggregated time series.
+    
+    Extracts discharge for all cells and returns mean discharge per timestep.
+    This preserves the spatial information by storing lat/lon for each extraction.
+    
+    Args:
+        ds: xarray Dataset (opened GRIB)
+        cells: DataFrame with columns [cell_lat, cell_lon, cell_idx, cell_idy]
+        basin_id: Basin identifier (for synthetic gauge_id construction)
+        lat_col: Column name for latitude
+        lon_col: Column name for longitude
+        discharge_var: Variable name in dataset (None = auto-detect)
+    
+    Returns:
+        Long-format DataFrame with columns [time, basin_id, discharge_m3s, cell_lat, cell_lon]
+        One row per cell per timestep, preserving spatial coordinates.
+    """
+    _require_xr()
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    if cells.empty:
+        raise ValueError("cells DataFrame is empty")
+    
+    lat_name, lon_name = infer_lat_lon_names(ds)
+    time_name = infer_time_name(ds)
+    
+    if discharge_var is None:
+        discharge_var = infer_discharge_var(ds)
+    
+    # Extract discharge at each cell
+    all_rows = []
+    for _, cell in cells.iterrows():
+        lat = float(cell[lat_col])
+        lon = float(cell[lon_col])
+        
+        # Extract single cell
+        da = ds[discharge_var].sel({lat_name: lat, lon_name: lon}, method="nearest")
+        
+        # Build time series for this cell
+        try:
+            idx_time = pd.to_datetime(da[time_name].values, errors='coerce')
+        except Exception:
+            try:
+                idx_time = pd.to_datetime(da[time_name].values, errors='coerce', format='mixed')
+            except Exception as e:
+                logger.error(f"Failed to parse dates for cell ({lat}, {lon}): {e}")
+                raise
+        
+        discharge_vals = da.values
+        
+        # Build output for this cell (one row per timestep)
+        cell_data = pd.DataFrame({
+            'date': idx_time,
+            'basin_id': str(basin_id),
+            'discharge_m3s': discharge_vals,
+            'cell_lat': lat,
+            'cell_lon': lon,
+        })
+        all_rows.append(cell_data)
+    
+    # Concatenate all cells
+    out = pd.concat(all_rows, ignore_index=True)
+    out = out.sort_values(['date', 'cell_lat', 'cell_lon']).reset_index(drop=True)
+    
+    return out
+
+
 def extract_daily_discharge_for_points(
     ds: "xr.Dataset",
     points: pd.DataFrame,
@@ -601,3 +722,141 @@ def load_or_build_gauge_timeseries(
     print(f"{'='*80}\n")
 
     return cached
+
+def write_return_period_netcdf(
+    output_path: Union[str, Path],
+    gauges_data: Dict[str, dict],
+    global_attrs: Optional[dict] = None,
+    return_levels_dir: Optional[Union[str, Path]] = None,
+) -> None:
+    """Write return period and discharge data to a NetCDF file.
+    
+    Parameters
+    ----------
+    output_path : Union[str, Path]
+        Path where the NetCDF file will be written (e.g., 'return-period.nc')
+    gauges_data : Dict[str, dict]
+        Dictionary mapping gauge_id → dict with keys:
+        - 'lat': float (latitude)
+        - 'lon': float (longitude)
+        - 'discharge_m3s': float (representative discharge - used if no return_levels_dir)
+        - 'return_period': float (years)
+        - Additional metadata (threshold_m3s, lambda, xi, sigma, etc.)
+    global_attrs : Optional[dict]
+        Global attributes for the NetCDF file (e.g., title, source, etc.)
+    return_levels_dir : Optional[Union[str, Path]]
+        Path to directory containing return level parquet files (e.g., 'synthetic_catalog/return_levels')
+        If provided, actual return period discharge values will be loaded from these files.
+        If not provided, the same discharge value will be used for all return periods.
+    
+    Notes
+    -----
+    Creates a NetCDF file with:
+    - Dimensions: gauge (number of gauges), return_period (number of return periods)
+    - Coordinates: gauge (string IDs), return_period (years)
+    - Data variables: 
+        - latitude (gauge) → latitude
+        - longitude (gauge) → longitude
+        - discharge_m3s (gauge, return_period) → discharge at each return period
+        - threshold_m3s (gauge) → POT threshold
+        - lambda_events_per_year (gauge) → event rate parameter
+    - Attributes: metadata for each variable and global attributes
+    """
+    _require_xr()
+    
+    if not gauges_data:
+        raise ValueError("gauges_data is empty")
+    
+    import logging
+    import pandas as pd
+    logger = logging.getLogger(__name__)
+    
+    # Extract gauge metadata
+    gauge_ids = list(gauges_data.keys())
+    lats = [gauges_data[gid].get('lat', None) for gid in gauge_ids]
+    lons = [gauges_data[gid].get('lon', None) for gid in gauge_ids]
+    thresholds = [gauges_data[gid].get('threshold_m3s', None) for gid in gauge_ids]
+    lambdas = [gauges_data[gid].get('lambda_events_per_year', None) for gid in gauge_ids]
+    
+    # Try to load actual return period discharge values from parquet files
+    discharge_2d = []
+    return_period_values = None
+    
+    if return_levels_dir is not None:
+        return_levels_dir = Path(return_levels_dir)
+        if return_levels_dir.exists():
+            logger.info(f"Loading return level parquet files from {return_levels_dir}")
+            
+            # Load return levels for each gauge
+            for gid in gauge_ids:
+                rl_file = return_levels_dir / f"{gid}__return_levels.parquet"
+                if rl_file.exists():
+                    rl_df = pd.read_parquet(rl_file)
+                    
+                    # Extract return periods and discharges
+                    if return_period_values is None:
+                        return_period_values = sorted(rl_df['return_period_years'].unique())
+                    
+                    # Map discharge values to return periods
+                    discharge_by_rp = rl_df.set_index('return_period_years')['return_level_m3s'].to_dict()
+                    discharge_for_rps = [discharge_by_rp.get(rp, None) for rp in return_period_values]
+                    discharge_2d.append(discharge_for_rps)
+                else:
+                    logger.warning(f"Return level file not found: {rl_file.name}, using placeholder")
+                    # Fallback: repeat the discharge value
+                    if return_period_values is None:
+                        return_period_values = [1, 2, 5, 10, 20, 50, 100]  # Default RPs
+                    discharge_for_rps = [gauges_data[gid].get('discharge_m3s', None) for _ in return_period_values]
+                    discharge_2d.append(discharge_for_rps)
+    
+    # If no parquet files, use default return periods and repeat the discharge value
+    if return_period_values is None:
+        return_period_values = [1, 2, 5, 10, 20, 50, 100, 200, 500]  # Default RPs if not found
+        discharge_2d = []
+        for gid in gauge_ids:
+            discharge_for_rps = [gauges_data[gid].get('discharge_m3s', None) for _ in return_period_values]
+            discharge_2d.append(discharge_for_rps)
+    
+    # Create xarray Dataset with return_period as a dimension
+    ds = xr.Dataset(
+        data_vars={
+            'latitude': (('gauge',), lats, {'units': 'degrees_north', 'long_name': 'Latitude'}),
+            'longitude': (('gauge',), lons, {'units': 'degrees_east', 'long_name': 'Longitude'}),
+            'discharge_m3s': (('gauge', 'return_period'), discharge_2d, {'units': 'm3 s-1', 'long_name': 'Discharge at Return Period'}),
+            'threshold_m3s': (('gauge',), thresholds, {'units': 'm3 s-1', 'long_name': 'POT Threshold'}),
+            'lambda_events_per_year': (('gauge',), lambdas, {'units': '1', 'long_name': 'Event Rate'}),
+        },
+        coords={
+            'gauge': gauge_ids,
+            'return_period': return_period_values,
+        },
+    )
+    
+    # Add global attributes
+    if global_attrs:
+        ds.attrs.update(global_attrs)
+    else:
+        ds.attrs['title'] = 'GloFAS Return Period Analysis'
+        ds.attrs['source'] = 'GloFAS v4 discharge data'
+        ds.attrs['institution'] = 'Disaster Management Centre'
+    
+    # Write to NetCDF
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Try to write with compression; fall back to no compression if backend doesn't support it
+    try:
+        ds.to_netcdf(output_path, engine='netcdf4', encoding={var: {'zlib': True, 'complevel': 4} for var in ds.data_vars})
+    except (ValueError, ImportError):
+        # Fall back to scipy backend without compression
+        ds.to_netcdf(output_path)
+    
+    logger.info(f"Wrote return period NetCDF to {output_path}")
+    
+    # ⭐ CRITICAL: Close the dataset to release file handles
+    try:
+        ds.close()
+    except Exception as e:
+        logger.warning(f"Error closing dataset: {e}")
+    
+    return
