@@ -17,6 +17,11 @@ from philflood.utils.memory_utils import MemoryMonitor, GribGeographicChunker
 logger = logging.getLogger(__name__)
 
 
+def _require_xr():
+    if xr is None:
+        raise ImportError("xarray is required to read GRIB files")
+
+
 def extract_daily_discharge_with_memory_safety(
     ds: "xr.Dataset",
     points: pd.DataFrame,
@@ -62,6 +67,8 @@ def extract_daily_discharge_with_memory_safety(
     pd.DataFrame
         Long-format extraction with columns [date, virtual_gauge_id, discharge_m3s]
     """
+    _require_xr()
+
     from philflood.adapters.glofas_grib_v4 import (
         infer_lat_lon_names,
         infer_time_name,
