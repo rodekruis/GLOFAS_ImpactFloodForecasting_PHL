@@ -282,8 +282,10 @@ def load_or_build_gauge_timeseries_streaming(
                     else:
                         cached[gid] = s
                         continue
-                except Exception:
-                    pass
+                except Exception as e:
+                    # If cached file is corrupt or has invalid data, treat as missing.
+                    # This allows recovery by re-extracting the gauge data.
+                    logger.warning(f"Failed to read cached file for gauge {gid}: {e}")
             missing.append(gid)
         
         if not missing:
