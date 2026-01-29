@@ -249,7 +249,7 @@ def extract_daily_discharge_for_cells(
         discharge_var: Variable name in dataset (None = auto-detect)
     
     Returns:
-        Long-format DataFrame with columns [time, basin_id, discharge_m3s, cell_lat, cell_lon]
+        Long-format DataFrame with columns [date, basin_id, discharge_m3s, cell_lat, cell_lon]
         One row per cell per timestep, preserving spatial coordinates.
     """
     _require_xr()
