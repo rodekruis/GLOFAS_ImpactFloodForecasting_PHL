@@ -11,10 +11,6 @@ requires-python = ">=3.10"
 authors = [
   {name = "David Urueña", email = "duruenaramirez@redcross.nl"}
 ]
-urls = {
-  Source = "https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL",
-  Issues = "https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL/issues",
-}
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
@@ -39,6 +35,10 @@ dependencies = [
   "pyyaml>=6.0",
   "python-dateutil>=2.8.2",
 ]
+
+[project.urls]
+Source = "https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL"
+Issues = "https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL/issues"
 
 [project.optional-dependencies]
 dev = [

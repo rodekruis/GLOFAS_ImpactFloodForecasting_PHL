@@ -217,6 +217,78 @@ pip install climada
 
 ---
 
+## Step 7: Validate Your Calibration
+
+### Quick Validation Checks
+
+After running the calibration notebook, verify the outputs:
+
+#### Check Section 11C Output (Bootstrap Return Levels)
+
+```python
+import pandas as pd
+
+# Load results
+df = pd.read_parquet("return_levels/return_levels_bootstrap.parquet")
+
+# Check one gauge
+gauge_data = df[df["virtual_gauge_id"] == df["virtual_gauge_id"].iloc[0]]
+for _, row in gauge_data.iterrows():
+    T = row["return_period_years"]
+    mean = row["mean_m3s"]
+    std = row["std_m3s"]
+    q05 = row["q05_m3s"]
+    q95 = row["q95_m3s"]
+    cv = std / mean
+    print(
+        f"T={T:3.0f}yr: mean={mean:6.1f} m³/s, CV={cv:.3f}, "
+        f"q05={q05:6.1f} m³/s, q95={q95:6.1f} m³/s"
+    )
+```
+
+**Expected:**
+-  CV (coefficient of variation) between 0.02-0.30 (2-30%)
+-  Discharge increases with return period
+-  No NaN values
+
+#### Check CLIMADA NetCDF Output
+
+```python
+import xarray as xr
+
+# Load NetCDF
+ds = xr.open_dataset("climada_flood_hazard.nc")
+
+# Verify structure
+print(f"Events: {ds.dims['event']}")
+print(f"Centroids: {ds.dims['latitude'] * ds.dims['longitude']}")
+print(f"Variables: {list(ds.data_vars)}")
+
+# Check required CLIMADA variables
+assert "intensity" in ds.data_vars
+assert "frequency" in ds.data_vars
+assert "intensity_std" in ds.data_vars
+print(" CLIMADA-compatible structure confirmed")
+```
+
+**Expected:**
+-  All 9 return period events present
+-  intensity, frequency, intensity_std variables exist
+-  No errors loading with xarray
+
+### Common Validation Issues
+
+**Issue:** Section 11C slow (>5s per gauge)
+- Check data quality, reduce bootstrap iterations if needed
+
+**Issue:** NetCDF has NaN values
+- Verify gauge ID format: `CELL__lat_XX.XX__lon_YY.YY`
+
+**Issue:** Monotonicity failures (<90% passing)
+- Check exceedances distribution, inspect failing gauges
+
+---
+
 ## Next Steps
 
 1. **Add More Basins**: Copy your working config and calibrate additional basins
@@ -257,3 +329,4 @@ Update this with the latest structure. Do it later.
 ---
 
 **You're ready to go!** 🚀
+
