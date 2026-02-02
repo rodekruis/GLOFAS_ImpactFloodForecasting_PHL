@@ -5,12 +5,6 @@ All notable changes to the PhilFlood project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## Version Roadmap
-
-- **0.x series** (Current): CLIMADA integration development phase
-- **1.x series** (Future): Production deployment and operationalization
-- **2.x series** (Future): Full system integration with automated triggers
-
 ---
 
 ## [0.3.0] - February 2, 2026
@@ -155,6 +149,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **tests/test_smoke.py**: Installation verification
 - **docs/quickstart.md**: 15-minute setup guide
 - **docs/deployment.md**: Production deployment guide
+
+---
+
+## Version Roadmap
+
+- **0.x series** (Current): CLIMADA integration development phase
+- **1.x series** (Future): Production deployment and operationalization
+- **2.x series** (Future): Full system integration with automated triggers
 
 ---
 

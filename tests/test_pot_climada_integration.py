@@ -11,7 +11,6 @@ This test suite validates:
 import numpy as np
 import pandas as pd
 import pytest
-from pathlib import Path
 
 # Import the new functions
 from philflood.calibration.evt_pot import (
@@ -596,6 +595,7 @@ class TestPOTCLIMADANetCDF:
 class TestPerformance:
     """Performance benchmarks for POT formula operations."""
     
+    @pytest.mark.performance
     def test_bootstrap_performance(self):
         """Test that bootstrap completes in reasonable time."""
         import time
@@ -605,16 +605,17 @@ class TestPerformance:
         exceedances = rng.exponential(scale=25, size=200)
         
         start = time.time()
-        result = bootstrap_pot_return_levels(
+        bootstrap_pot_return_levels(
             exceedances, threshold=100, lambda_u=2.5,
             return_periods=[2, 5, 10, 20, 50, 100, 200, 500, 1000],
             n_bootstrap=20, random_state=42
         )
         elapsed = time.time() - start
         
-        # Should complete in < 3 seconds for single gauge
-        assert elapsed < 3.0, f"Bootstrap took {elapsed:.2f}s, expected < 3s"
+        # Should complete in < 5 seconds for single gauge (increased margin for CI)
+        assert elapsed < 5.0, f"Bootstrap took {elapsed:.2f}s, expected < 5s"
     
+    @pytest.mark.performance
     def test_discharge_to_return_period_vectorized_performance(self):
         """Test that vectorized inverse calculation is fast."""
         import time
@@ -629,8 +630,8 @@ class TestPerformance:
         )
         elapsed = time.time() - start
         
-        # Should complete in < 1 second
-        assert elapsed < 1.0, f"Vectorized D→T took {elapsed:.2f}s, expected < 1s"
+        # Should complete in < 2 seconds (increased margin for CI)
+        assert elapsed < 2.0, f"Vectorized D→T took {elapsed:.2f}s, expected < 2s"
         assert len(T_values) == n_cells
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import logging
 from dataclasses import dataclass, field
 from typing import Optional, Tuple, Union
 
@@ -16,6 +17,9 @@ try:
     from scipy import stats
 except Exception:  # pragma: no cover
     stats = None
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -274,7 +278,9 @@ def return_period_to_discharge_pot(
     Examples
     --------
     >>> return_period_to_discharge_pot(T=10, u=100, xi=0.1, sigma=50, lambda_u=2)
+    274.7  # approximately
     >>> return_period_to_discharge_pot(T=[2, 10, 100], u=100, xi=0, sigma=50, lambda_u=2)
+    array([169.3, 249.8, 364.9])  # approximately
     """
     # Input validation
     if sigma <= 0:
@@ -513,8 +519,9 @@ def bootstrap_pot_return_levels(
             )
             bootstrap_discharges[i, :] = q_boot
             
-        except Exception:
+        except Exception as e:
             # Skip this bootstrap iteration if fitting fails
+            logger.debug(f"Bootstrap iteration {i} failed: {e}")
             continue
     
     # Count successful iterations (non-NaN)
