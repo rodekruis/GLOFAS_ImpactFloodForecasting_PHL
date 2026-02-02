@@ -235,10 +235,15 @@ df = pd.read_parquet("return_levels/return_levels_bootstrap.parquet")
 gauge_data = df[df["virtual_gauge_id"] == df["virtual_gauge_id"].iloc[0]]
 for _, row in gauge_data.iterrows():
     T = row["return_period_years"]
-    mean = row["return_level_m3s_mean"]
-    std = row["return_level_m3s_std"]
+    mean = row["mean_m3s"]
+    std = row["std_m3s"]
+    q05 = row["q05_m3s"]
+    q95 = row["q95_m3s"]
     cv = std / mean
-    print(f"T={T:3.0f}yr: mean={mean:6.1f} m/s, CV={cv:.3f}")
+    print(
+        f"T={T:3.0f}yr: mean={mean:6.1f} m³/s, CV={cv:.3f}, "
+        f"q05={q05:6.1f} m³/s, q95={q95:6.1f} m³/s"
+    )
 ```
 
 **Expected:**

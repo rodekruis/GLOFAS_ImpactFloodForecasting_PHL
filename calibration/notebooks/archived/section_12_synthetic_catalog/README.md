@@ -37,9 +37,9 @@ This archive contains the complete Section 12 code cells from the calibration wo
 - **12E:** Final summary and next steps
 
 ## Archived Date
-- **Date:** 2026-01-XX (insert current date)
+- **Date:** February 2, 2026
 - **Reason:** Replaced with formula-based bootstrap approach (Section 11C)
 - **Status:** Functional but no longer actively maintained
 
 ## Contact
-For questions about this archival decision, see `IMPLEMENTATION_PROGRESS.md` in the project root.
+For questions about this archival decision, please consult the project's root-level documentation (e.g., `README.md`) or contact the project maintainers.
