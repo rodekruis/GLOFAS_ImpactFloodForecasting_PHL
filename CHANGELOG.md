@@ -11,54 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### CLIMADA Integration Phase - Formula-Based POT Implementation
 
-#### Replaced - Synthetic Event Catalog with Direct Formula Approach
+**Issue Fixed:** Notebook 02 discarded 7 of 8 return periods (87.5% data loss)
 
-- **Archived Section 12** from calibration notebook
-  - Reason: Synthetic events were intermediate step, now bypassed
-  - New approach: Direct formula-based return level calculation in Section 11C
-  - Migration: Formula uses POT/GPD parameters directly: `Q(T) = u + (σ/ξ) * ((T*λ)^ξ - 1)`
-  - Performance: 5-10x faster, no large intermediate datasets needed
+**Solution:** 
+- Section 5: Stack all return periods into event dimension before regrid/flood_depth
+- Section 6: Extract per-event depths and create 8 unique hazard events
+- Section 13: Generate CF-1.8 NetCDF with proper 3D structure + stakeholder visualizations
 
-#### Added - Section 11C: Bootstrap Return Levels (Formula-Based)
+**Files Modified:**
+- `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` (Sections 5, 6, 13)
+- `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 11C: formula-based bootstrap)
 
-- **calibration/notebooks/01_evt_pot_calibration_workflow.ipynb**
-  - Bootstrap uncertainty quantification (N=20 samples by default)
-  - Generates return levels for 9 return periods (1-500 years)
-  - Outputs: `return_levels_bootstrap.parquet` with mean, std, q05, q95
-  - Runtime: <2 seconds per gauge (typically <1s)
-  - QA metrics: Monotonicity check, CV statistics, fallback detection
+**Testing:** See [VERIFICATION_CHECKLIST_v0.3.0.md](VERIFICATION_CHECKLIST_v0.3.0.md)
 
-#### Enhanced - Section 13: CLIMADA-Compatible NetCDF Generation
-
-- **Replaced** raster-based approach with event-based structure
-  - Event format: Each return period = one event (not a dimension)
-  - Required variables: `intensity`, `frequency`, `intensity_std`, `event_id`, `event_name`
-  - Frequency calculation: `np.diff(1/return_periods, prepend=0)`
-  - CF-1.8 compliant with proper coordinate systems
-  - File size: Typically <1 MB for regional basins
-
-#### Added - Section 13B: NetCDF Verification & QA Maps
-
-- **Visualization**: 4-panel verification map
-  - Key return periods (1yr, 10yr, 100yr, 500yr)
-  - Spatial patterns validation
-  - Uncertainty (CV) assessment
-- **Quality checks**: Monotonicity, NaN detection, frequency structure
-
-#### Added - Section 13C: Stakeholder Spatial Maps
-
-- **Publication-ready visualizations**:
-  - Multi-panel return period intensity maps
-  - Coefficient of variation (uncertainty) spatial map
-  - Colorblind-friendly palettes (Viridis, RdYlBu_r)
-  - 300 DPI PNG outputs for reports/papers
-
-#### Fixed - Documentation Redundancy
-
-- **Removed** redundant documentation files:
-  - Superseded files merged into comprehensive docs/quickstart.md
-  - Outdated implementation tracking files archived
-  - Result: 38% reduction in documentation files, eliminated ~60% of redundant content
+**Impact:**
+- ✅ 0% data loss (previously 87.5%)
+- ✅ 8 unique flood depths (previously 8 duplicates)
+- ✅ 5-10x faster return level calculation (formula-based)
+- ✅ All 8 return periods processed through CLIMADA-Petals
+- ✅ 38% reduction in documentation files (removed redundant files)
 
 ---
 

@@ -92,6 +92,69 @@ pip install -e .
 philflood --help
 ```
 
+### Core Dependencies (Minimal)
+
+PhilFlood requires only **4 core packages** (all others are automatically included):
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `climada` | ≥3.0.0 | Flood hazard modeling, centroids, impact calculation |
+| `climada-petals` | ≥1.0.0 | Regridding and flood depth interpolation |
+| `ipywidgets` | ≥7.6.0 | Interactive Jupyter notebook diagnostics |
+| `pyextremes` | ≥2.3.0 | Extreme Value Theory: POT/GPD calibration |
+
+**Important**: Do NOT manually install numpy, pandas, xarray, scipy, geopandas, or rasterio - these are automatically included by the 4 core packages and version conflicts can occur if installed separately.
+
+Install these versions via `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
+
+## Troubleshooting
+
+### Memory Issues with Large Datasets
+
+**Problem:** "Memory exceeded" or "Killed" when processing 47+ years of GloFAS GRIB  
+**Root Cause:** Attempting to load entire historical dataset into RAM at once  
+**Solution:** Use the streaming adapter designed for large datasets
+- The system automatically uses memory-efficient streaming extraction
+- If manual processing, use `src/philflood/adapters/glofas_grib_v4_optimized.py`
+- See [Methods Overview](docs/methods_onepager.md#streaming-grib-extraction-architecture) for details
+
+### Return Period Mismatches (Only 1 of 8 in Output)
+
+**Problem:** Output contains only 1 return period instead of 8  
+**Root Cause:** Fixed in v0.3.0 - see [CHANGELOG.md](CHANGELOG.md#030---february-2-2026)  
+**Solution:** Using current notebook version automatically applies the fix
+- Notebooks handle all 8 return periods simultaneously through event dimension stacking
+- No manual action needed if running updated code
+
+### CLIMADA-Petals Data Shape Errors
+
+**Problem:** `petals_regrid()` expecting 3D but got 2D array  
+**Root Cause:** Return periods not properly stacked into event dimension before regridding  
+**Solution:** Ensure Section 5 of Notebook 02 properly executes event dimension stacking
+- Reference implementation: `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` Section 5
+- See Section 5 markdown: "Stack all return periods before passing to regrid"
+
+### Dataset Incompatibility ("No return_period_* variables")
+
+**Problem:** Script cannot find return period variables  
+**Cause:** Potential mismatch between Notebook 01 output naming and Notebook 02 expectations  
+**Fix:** Both notebooks now follow consistent naming convention: `return_period_RP{N}yr`
+- Verify `return_levels_bootstrap.parquet` exists in `data/processed/calibration/`
+- Check output files match naming pattern in notebook comments
+
+### Installation Issues with Requirements
+
+**Important:** Only install the 4 core packages from `requirements.txt`:
+- `climada>=3.0.0` - All flood modeling dependencies included
+- `climada-petals>=1.0.0` - Regridding and flood depth utilities
+- `ipywidgets>=7.6.0` - Interactive notebook features
+- `pyextremes>=2.3.0` - EVT and POT calibration
+
+Do NOT manually install numpy, pandas, xarray, etc. - these are automatically included by the above packages and version conflicts can occur.
+
 ## License
 
 [License details here]

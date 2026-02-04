@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "philflood"
-version = "0.1.0"
+version = "0.3.0"
 description = "Impact-Based Forecasting system for flood early action in the Philippines"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,19 +21,10 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 dependencies = [
-  "numpy>=1.24",
-  "pandas>=2.0",
-  "xarray>=2023.1",
-  "netCDF4>=1.6",
-  "cftime>=1.6",
-  "geopandas>=0.14",
-  "pyogrio>=0.8",
-  "rasterio>=1.3",
-  "shapely>=2.0",
-  "pyproj>=3.5",
-  "scipy>=1.9",
-  "pyyaml>=6.0",
-  "python-dateutil>=2.8.2",
+  "climada>=3.0.0",
+  "climada-petals>=1.0.0",
+  "ipywidgets>=7.6.0",
+  "pyextremes>=2.3.0",
 ]
 
 [project.urls]
