@@ -138,9 +138,9 @@ PhilFlood v0.3.0 processes all 9 return periods simultaneously through CLIMADA-P
 
 ### Data Loss Fix
 
-**What changed**: v0.3.0 fixed a critical issue where 87.5% of return period data was discarded:
-- **Before**: Notebook 02 only processed 1 of 8 return periods through to hazard object
-- **After**: All 8 return periods flow through regrid → flood_depth → hazard creation
+**What changed**: v0.3.0 fixed a critical issue where 88.9% of return period data was discarded:
+- **Before**: Notebook 02 only processed 1 of 9 return periods through to hazard object
+- **After**: All 9 return periods flow through regrid → flood_depth → hazard creation
 - **Mechanism**: Event dimension stacking ensures multi-dimensional data survives coordinate transformations
 
 ## Real-Time Operational Flow
