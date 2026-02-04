@@ -45,22 +45,22 @@
 - [ ] Verify configuration is set (Section 1)
 
 ### Section 5 Execution
-- [ ] Verify stacking finds all 9 return period variables
+- [ ] Verify stacking finds all 8 return period variables
 - [ ] Verify regrid completes without errors
 - [ ] Verify flood_depth completes without errors
 - [ ] Verify output file `return-period_regrid_all.nc` created (3D array)
 - [ ] Verify output file `flood-depth_all.nc` created (3D array)
 - [ ] Verify per-event statistics printed correctly
-- [ ] Verify array shapes show (lat_jrc, lon_jrc, 9)
+- [ ] Verify array shapes show (lat_jrc, lon_jrc, 8)
 
 ### Section 6 Execution
-- [ ] Verify 9 events extracted from flood_depth array
+- [ ] Verify 8 events extracted from flood_depth array
 - [ ] Verify RP values parsed correctly from variable names
 - [ ] Verify event sorting works (RPs in ascending order)
 - [ ] Verify per-event depth statistics printed
-- [ ] Verify Hazard object created with 9 events
+- [ ] Verify Hazard object created with 8 events
 - [ ] Verify Hazard.hdf5 file created
-- [ ] Verify metadata.json file created with all 9 return periods
+- [ ] Verify metadata.json file created with all 8 return periods
 
 ---
 
@@ -70,27 +70,27 @@
 ```
 HAZARD_OUTPUT/
 ├── return-period_regrid_all.nc
-│   └── Shape should be: (n_lat_jrc, n_lon_jrc, 9)
+│   └── Shape should be: (n_lat_jrc, n_lon_jrc, 8)
 │       Coords: [latitude, longitude, event]
-│       Events: [return_period_RP1, RP10, RP20, RP50, RP100, RP200, RP500, ...]
+│       Events: [return_period_RP1, RP10, RP20, RP50, RP75, RP100, RP200, RP500]
 │
 ├── flood-depth_all.nc
-│   └── Shape should be: (n_lat_jrc, n_lon_jrc, 9)
+│   └── Shape should be: (n_lat_jrc, n_lon_jrc, 8)
 │       Coords: [latitude, longitude, event]
 │       Data: Interpolated flood depths in meters
 │
 ├── climada_hazard_[BASIN].hdf5
 │   └── Should contain:
-│       - 9 events (not 1)
-│       - 9 unique event_names: "1-in-1yr", "1-in-10yr", etc.
-│       - 9 unique intensities (not duplicates)
-│       - 9 correct frequencies
+│       - 8 events (not 1)
+│       - 8 unique event_names: "1-in-1yr", "1-in-10yr", etc.
+│       - 8 unique intensities (not duplicates)
+│       - 8 correct frequencies
 │
 └── hazard_metadata.json
     └── Should show:
-        - "n_events": 9
-        - "return_periods_years": [1, 2, 5, 10, 20, 50, 100, 200, 500, ...]
-        - "note": "All 9 return periods from Notebook 01..."
+        - "n_events": 8
+        - "return_periods_years": [1, 10, 20, 50, 75, 100, 200, 500]
+        - "note": "All 8 return periods from Notebook 01..."
 ```
 
 ### Data Quality Checks
@@ -106,10 +106,10 @@ HAZARD_OUTPUT/
 
 ### Old Output (Before Fix)
 ```python
-# Hazard structure with 9 events
-n_events = 9
-intensity_matrix shape: (9, n_centroids)
-intensity values per event: ALL IDENTICAL (same depths repeated 9 times)
+# Hazard structure with 8 events
+n_events = 8
+intensity_matrix shape: (8, n_centroids)
+intensity values per event: ALL IDENTICAL (same depths repeated 8 times)
 
 # This is WRONG because:
 # - All events have same flood depth
@@ -119,9 +119,9 @@ intensity values per event: ALL IDENTICAL (same depths repeated 9 times)
 
 ### New Output (After Fix)
 ```python
-# Hazard structure with 9 events
-n_events = 9
-intensity_matrix shape: (9, n_centroids)
+# Hazard structure with 8 events
+n_events = 8
+intensity_matrix shape: (8, n_centroids)
 intensity values per event: UNIQUE (different depths per RP)
 
 # This is CORRECT because:
@@ -158,7 +158,7 @@ intensity values per event: UNIQUE (different depths per RP)
 ## Phase 6: Downstream Impact
 
 ### For Notebook 03 (Impact Modeling)
-- [x] Hazard object now has 9 events instead of 1
+- [x] Hazard object now has 8 events instead of 1
 - [x] Each event properly represents different return period
 - [x] Impact calculations will have full probabilistic range
 - [x] Results can now distinguish risk by return period
@@ -167,7 +167,7 @@ intensity values per event: UNIQUE (different depths per RP)
 - [x] File naming clearer (`*_all.nc` indicates all events)
 - [x] Metadata complete and documented
 - [x] No breaking changes to downstream code
-- [x] Performance impact acceptable (9x vs 1x)
+- [x] Performance impact acceptable (8x vs 1x)
 
 ---
 
@@ -199,14 +199,14 @@ Before running the notebook:
    - [x] Function calls correct
 
 2. **Logic Correctness**
-   - [x] Returns all 9 variables (not just first)
+   - [x] Returns all 8 variables (not just first)
    - [x] Stacks properly into event dimension
    - [x] Preserves dimensions through pipeline
    - [x] Extracts individual events correctly
 
 3. **Output Integrity**
    - [x] File names updated for clarity
-   - [x] Arrays have correct shapes (3D with 9 events)
+   - [x] Arrays have correct shapes (3D with 8 events)
    - [x] Data values unique per event
    - [x] Metadata complete and accurate
 
@@ -224,4 +224,4 @@ Before running the notebook:
 
 All code changes have been made and documented. The notebook is ready for execution testing.
 
-**Key Achievement:** From 88.9% data loss to 0% data loss - all 9 calibration return periods now flow through the complete CLIMADA-Petals pipeline.
+**Key Achievement:** From 87.5% data loss to 0% data loss - all 8 calibration return periods now flow through the complete CLIMADA-Petals pipeline.

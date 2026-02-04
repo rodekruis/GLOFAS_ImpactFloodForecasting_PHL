@@ -101,12 +101,12 @@ These metrics inform trigger threshold selection and confidence levels.
 
 ### Multi-Dimensional Event Workflow (v0.3.0)
 
-PhilFlood v0.3.0 processes all 9 return periods simultaneously through CLIMADA-Petals:
+PhilFlood v0.3.0 processes all 8 return periods simultaneously through CLIMADA-Petals:
 
 **1. Bootstrap Return Levels** (Notebook 01, Section 11C)
 - Input: Fitted GPD parameters (ξ, σ, threshold λ)
 - Method: 20 bootstrap resamples of POT exceedances  
-- Output: Return levels for 9 periods (1, 2, 5, 10, 20, 50, 100, 200, 500 years)
+- Output: Return levels for 8 periods (1, 10, 20, 50, 75, 100, 200, 500 years)
 - Uncertainty: 95% CIs via quantile sampling (stored in `return_levels_bootstrap.parquet`)
 - Formula: $Q(T) = u + \frac{\sigma}{\xi} \left((T \times n_{\text{exc}})^\xi - 1\right)$ where $u$ = threshold, $n_{\text{exc}}$ = annual exceedance rate
 
@@ -115,18 +115,18 @@ PhilFlood v0.3.0 processes all 9 return periods simultaneously through CLIMADA-P
 - Structure: 3D array (gauge_id × return_period × 1)
 - Required variables: `intensity`, `frequency`, `intensity_std`, `event_id`, `event_name`
 - Frequency calculation: $f(T) = 1/T$ (annual exceedance probability)
-- Result: NetCDF file with 9 unique return period events, not duplicates
+- Result: NetCDF file with 8 unique return period events, not duplicates
 
 **3. Event-Based CLIMADA Object** (Notebook 02, Sections 5-6)
 - **Critical fix**: Stack all return periods into event dimension BEFORE regridding
 - Regrid: Apply CLIMADA-Petals `petals_regrid()` preserving event structure
 - Flood depth: Use `petals_flood_depth()` per-event interpolation (event-aware, not per-pixel)
 - FLOPROS: Apply infrastructure protection per-event (if available)
-- Result: 9 unique events (one per return period), each with full spatial depth distribution
-- Alternative approach: Keep disaggregated (each gauge gets own 9-event hazard object)
+- Result: 8 unique events (one per return period), each with full spatial depth distribution
+- Alternative approach: Keep disaggregated (each gauge gets own 8-event hazard object)
 
 **4. Output Format & Validation**
-- CLIMADA Hazard object with 9 events (or per-gauge disaggregated)
+- CLIMADA Hazard object with 8 events (or per-gauge disaggregated)
 - Each event: discharge-to-population impact grid (spatial resolution: 100m × 100m)
 - Metadata: Return period, bootstrap uncertainty (σ, CV), event frequency, centroid lat/lon
 - Stored as: HDF5 (`hazard_fluvial_phl.h5`) + optional GeoJSON for GIS systems
@@ -138,9 +138,9 @@ PhilFlood v0.3.0 processes all 9 return periods simultaneously through CLIMADA-P
 
 ### Data Loss Fix
 
-**What changed**: v0.3.0 fixed a critical issue where 88.9% of return period data was discarded:
-- **Before**: Notebook 02 only processed 1 of 9 return periods through to hazard object
-- **After**: All 9 return periods flow through regrid → flood_depth → hazard creation
+**What changed**: v0.3.0 fixed a critical issue where 87.5% of return period data was discarded:
+- **Before**: Notebook 02 only processed 1 of 8 return periods through to hazard object
+- **After**: All 8 return periods flow through regrid → flood_depth → hazard creation
 - **Mechanism**: Event dimension stacking ensures multi-dimensional data survives coordinate transformations
 
 ## Real-Time Operational Flow
