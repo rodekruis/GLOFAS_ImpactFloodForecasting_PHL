@@ -72,7 +72,7 @@ HAZARD_OUTPUT/
 ├── return-period_regrid_all.nc
 │   └── Shape should be: (n_lat_jrc, n_lon_jrc, 8)
 │       Coords: [latitude, longitude, event]
-│       Events: [return_period_RP1, RP10, RP20, RP50, RP100, RP200, RP500, ...]
+│       Events: [return_period_RP1, RP10, RP20, RP50, RP75, RP100, RP200, RP500]
 │
 ├── flood-depth_all.nc
 │   └── Shape should be: (n_lat_jrc, n_lon_jrc, 8)
@@ -89,7 +89,7 @@ HAZARD_OUTPUT/
 └── hazard_metadata.json
     └── Should show:
         - "n_events": 8
-        - "return_periods_years": [1, 2, 5, 10, 20, 50, 100, 200, 500, ...]
+        - "return_periods_years": [1, 10, 20, 50, 75, 100, 200, 500]
         - "note": "All 8 return periods from Notebook 01..."
 ```
 

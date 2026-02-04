@@ -21,7 +21,3 @@ dependencies:
   - pip:
       # PhilFlood project (installs climada, climada-petals, pyextremes + all dependencies)
       - -e .
-      # 4 CRITICAL packages (auto-included by PhilFlood but listed for transparency)
-      - climada>=3.0.0
-      - climada-petals>=1.0.0
-      - pyextremes>=2.3.0
