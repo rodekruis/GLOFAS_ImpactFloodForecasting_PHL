@@ -30,6 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 **Files Modified:**
 - `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 13.5: replaced function definition with import + updated function call)
+- `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` (Section 8: fixed index vs. label selection ambiguity)
+
+**Additional Fix: Index vs. Label Selection in Visualizations**
+
+**Issue:** Section 8 visualizations used positional index selection (`.isel(event=idx)`) instead of label-based selection (`.sel(event=rp)`), creating fragility when return period order changes.
+
+**Impact:** If `rps_display = [10, 20, 50, 100, 200, 500]` doesn't match the actual data order `[10, 20, 50, 75, 100, 200, 500]`, visualizations would show wrong return periods (e.g., idx=3 would select RP=75 instead of RP=100).
+
+**Solution:** Replaced all 4 vulnerable `.isel(event=event_idx)` calls in Section 8 (8.3, 8.5, 8.6, 8.7) with `.sel(event=rp)` for robust label-based selection.
+
+**Benefits:**
+- ✅ Explicit: Code references `RP=100` directly, not "position 3"
+- ✅ Robust: Works even if return period order changes
+- ✅ Fail-safe: Clear warnings if RP doesn't exist
+- ✅ Maintainable: Adding/removing RPs doesn't break visualizations
 
 **Theory Verification:**
 - Confirmed correct formula per Peaks-Over-Threshold (POT) / Extreme Value Theory (EVT) literature (Coles 2001, Pickands 1975, WMO 2016)
