@@ -78,10 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Section 13: Generate CF-1.8 NetCDF with proper 3D structure + stakeholder visualizations
 
 **Files Modified:**
-- `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` (Sections 5, 6, 13)
-- `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 11C: formula-based bootstrap)
 
-**Testing:** See [VERIFICATION_CHECKLIST_v0.3.0.md](VERIFICATION_CHECKLIST_v0.3.0.md)
+**Testing:** See [VERIFICATION_CHECKLIST_v0.3.0.md](docs/archive/VERIFICATION_CHECKLIST_v0.3.0.md)
 
 **Impact:**
 - ✅ 0% data loss (previously 87.5%)

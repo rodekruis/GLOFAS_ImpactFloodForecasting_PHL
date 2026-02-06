@@ -306,25 +306,17 @@ print(" CLIMADA-compatible structure confirmed")
 
 ---
 
-## Directory Structure Reminder
-Update this with the latest structure. Do it later.
-```
-📁 GLOFAS_ImpactFloodForecasting_PHL/
-├── 📁 calibration/          # Research & calibration (notebooks, scripts)
-│   ├── notebooks/           # Interactive EVT fitting, diagnostics
-│   └── scripts/             # Batch calibration tools
-├── 📁 ops/                  # Operational deployment
-│   ├── configs/             # Basin configurations (YAML)
-│   └── pipeline/            # Production monitoring scripts
-├── 📁 src/philflood/        # Core library (import from here)
-│   ├── data/                # Data extraction
-│   ├── ev/                  # Extreme value analysis
-│   ├── hazard/              # Flood depth mapping
-│   ├── impact/              # Population impact calculation
-│   ├── ops/                 # Operational utilities
-│   └── risk/                # Risk metrics (AEP/OEP)
-└── 📁 docs/                 # Documentation
-```
+## Directory Structure Reference
+
+For a complete view of the codebase organization, see the [main README](../README.md#directory-structure). Key directories for this quickstart:
+
+- **`calibration/notebooks/`** - Interactive EVT calibration workflows
+- **`src/philflood/calibration/`** - Statistical model fitting code  
+- **`src/philflood/models/ev/`** - Extreme value theory models
+- **`ops/configs/basins/`** - Basin-specific configuration files
+- **`data/processed/calibration/`** - Calibration outputs
+
+For architecture details, see [docs/ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
