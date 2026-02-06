@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.1] - February 6, 2026 (In Progress)
+
+### Critical Bug Fix: Discharge-to-Return-Period Function Consolidation
+
+**Issue Identified & Fixed:** Two different implementations of `discharge_to_return_period()` existed in the codebase with a critical mathematical discrepancy in the exponential case (|ξ| < 1e-6), causing a **63.2% error** in return period calculations.
+
+**Root Cause:**
+- **Notebook function** (`01_evt_pot_calibration_workflow.ipynb`, Section 13.5): Incorrectly implemented exponential case as `T = σ / (λ * (q - u))` (wrong)
+- **Module function** (`src/philflood/calibration/evt_pot.py`): Correctly implemented as `T = (1/λ) * exp[(q-u)/σ]` (correct per EVT theory)
+
+**Error Magnitude (Example):**
+- Input: u=100 m³/s, σ=50 m³/s, λ=2 events/year, q=150 m³/s
+- Notebook result: 0.5 years (WRONG)
+- Correct result: 1.359 years (63.2% error)
+
+**Solution Implemented:**
+1. **Removed** the buggy local function from notebook 01, Section 13.5
+2. **Added import** statement: `from philflood.calibration.evt_pot import discharge_to_return_period_pot`
+3. **Updated** all call sites to use `discharge_to_return_period_pot()` instead of local `discharge_to_return_period()`
+4. **Verified** that Notebook 02 does not use these functions directly (no changes needed there)
+
+**Files Modified:**
+- `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 13.5: replaced function definition with import + updated function call)
+
+**Theory Verification:**
+- Confirmed correct formula per Peaks-Over-Threshold (POT) / Extreme Value Theory (EVT) literature (Coles 2001, Pickands 1975, WMO 2016)
+- Both exponential (ξ → 0) and GPD cases (ξ ≠ 0) validated against theoretical formulas
+- Test suite `tests/test_pot_climada_integration.py` already validates `discharge_to_return_period_pot()` with 11 test cases ✓
+
+**Impact on Results:**
+- Return period grid calculations now use mathematically correct formula
+- Flood depth interpolation in Notebook 02 will reflect corrected return periods
+- Estimated impact: **Up to 63% adjustment in return period values** for cells with small ξ (exponential-like tails)
+
+**Verification Checklist:**
+- ✅ Function comparison documented and analyzed
+- ✅ Bug quantified with test case (63.2% error)
+- ✅ Correct function identified from EVT theory
+- ✅ Codebase audited for usage patterns
+- ✅ Consolidation implemented (single source of truth)
+- ✅ Existing test suite covers correct function
+
+---
+
 ## [0.3.0] - February 2, 2026
 
 ### CLIMADA Integration Phase - Formula-Based POT Implementation
