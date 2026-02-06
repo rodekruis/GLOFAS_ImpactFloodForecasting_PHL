@@ -35,7 +35,7 @@ Implements scientific models for risk quantification:
 - **`risk/`** - Risk metrics including Annual Exceedance Probability (AEP) and Occurrence Exceedance Probability (OEP)
 
 **Key files:**
-- `models/ev/pot_calibration.py` - Peaks Over Threshold (POT) calibration
+- `models/ev/peaks_over_threshold.py` - Peaks Over Threshold (POT) calibration
 - `models/impact/population_exposure.py` - Population-at-risk calculations (v0.3: placeholder)
 
 #### **`calibration/`** - Statistical Model Fitting
@@ -45,18 +45,18 @@ Tools for offline model calibration:
 - Diagnostic plotting and model validation
 
 **Key files:**
-- `evt_calibrator.py` - Main calibration workflow
-- `diagnostics.py` - Mean residual life plots, parameter stability
+- `evt_pot.py` - EVT Peaks Over Threshold (POT) calibration implementation
+- `evt_calibrator.py` - Main calibration workflow *(planned, not yet implemented)*
+- `diagnostics.py` - Mean residual life plots, parameter stability *(planned, not yet implemented)*
 
 #### **`config/`** - Configuration Management
-YAML configuration schema and loading:
+YAML configuration catalog and loading helpers:
 - Basin-specific parameter files (`ops/configs/basins/*.yaml`)
 - Country-level configuration (`ops/configs/country.yaml`)
-- Schema validation and defaults
+- Shared routines for validation, defaults, and mapping into domain models
 
 **Key files:**
-- `loader.py` - YAML parsing with validation
-- `schema.py` - Configuration schema definitions
+- `basin.py` - Basin configuration loader/validator backed by YAML files
 
 #### **`geo/`** - Spatial Operations
 Geographic data processing and analysis:
@@ -80,13 +80,12 @@ High-level workflows combining multiple modules:
 
 #### **`ops/`** - Operational Utilities
 Production-specific functionality:
-- Trigger decision logic
-- Alert formatting and delivery
+- Runtime configuration and logging setup
+- Operational scripts and utilities
 - Health checks and monitoring
 
 **Key files:**
-- `trigger.py` - Threshold exceedance detection
-- `alerts.py` - Email and webhook notifications
+- `logging_config.py` - Centralized logging configuration for operational workflows
 
 #### **`qc/`** - Quality Control
 Data quality checks and validation:
@@ -95,7 +94,7 @@ Data quality checks and validation:
 - Spatial extent verification
 
 **Key files:**
-- `data_quality.py` - Quality check implementations
+- `timeseries.py` - Time series quality check implementations
 
 #### **`utils/`** - Cross-cutting Utilities
 Shared infrastructure code:
@@ -104,8 +103,8 @@ Shared infrastructure code:
 - Date/time utilities
 
 **Key files:**
-- `memory.py` - Memory profiling and optimization
-- `logging.py` - Structured logging setup
+- `memory_utils.py` - Memory profiling and optimization
+- `paths.py` - Path utilities and helpers
 
 #### **`cli.py`** - Command-Line Interface
 Main entry point for the `philflood` command:
@@ -120,30 +119,30 @@ philflood validate --config ops/configs/basins/Cagayan_01.yaml
 
 ### **Calibration Workflow** (Offline, Research Phase)
 ```
-Raw GloFAS → adapters/glofas_grib → calibration/evt_calibrator → config/basin.yaml
-    GRIB       (streaming extract)     (GPD fitting, bootstrap)    (thresholds)
+Raw GloFAS → adapters/glofas_grib_v4_optimized → calibration/evt_pot → config/basin.yaml
+    GRIB          (streaming extract)              (GPD fitting, bootstrap)   (thresholds)
 ```
 
 1. **Extract** historical discharge via `adapters/glofas_grib_v4_optimized.py`
-2. **Calibrate** EVT models using `calibration/evt_calibrator.py`
+2. **Calibrate** EVT models using `calibration/evt_pot.py`
 3. **Generate** basin configuration with thresholds in `ops/configs/basins/*.yaml`
 
 ### **Operational Workflow** (Online, Production Phase)
 ```
-GloFAS Forecast → adapters → models/ev → models/impact → ops/trigger → Alert
-   (Real-time)     (extract)  (Q→RP)    (RP→People)    (threshold)   (email)
+GloFAS Forecast → adapters → models/ev → models/impact → pipelines/monitoring → Alert
+   (Real-time)     (extract)  (Q→RP)    (RP→People)      (orchestrate)       (output)
 ```
 
-1. **Ingest** forecast via `adapters/glofas_grib.py`
+1. **Ingest** forecast via `adapters/glofas_grib_v4_optimized.py`
 2. **Convert** discharge to return period using calibrated `models/ev/` parameters
 3. **Calculate** population impact via `models/impact/` (v1.0: full integration)
-4. **Evaluate** triggers using `ops/trigger.py` logic
-5. **Issue** alerts via `ops/alerts.py`
+4. **Evaluate** triggers and orchestrate workflow via `pipelines/monitoring.py`
+5. **Output** alerts and reports (v1.0: full implementation)
 
 ### **Validation Workflow** (Continuous)
 ```
-Configuration → config/loader → qc/data_quality → pipelines/validation → Report
-  (Basin YAML)   (parse+validate)  (quality checks)   (orchestrate)      (JSON)
+Configuration → config/basin.py → qc/timeseries.py → pipelines/validation → Report
+  (Basin YAML)    (parse+validate)    (quality checks)     (orchestrate)      (JSON)
 ```
 
 ---
@@ -214,9 +213,9 @@ See [CHANGELOG.md](../CHANGELOG.md) for detailed roadmap.
 ```python
 # Correct module imports
 from philflood.adapters.glofas_grib_v4_optimized import extract_timeseries_streaming
-from philflood.calibration.evt_calibrator import calibrate_pot_model
-from philflood.models.ev.pot_calibration import calculate_return_levels
-from philflood.config.loader import load_basin_config
+from philflood.calibration.evt_pot import calibrate_pot_model
+from philflood.models.ev.peaks_over_threshold import calculate_return_levels
+from philflood.config.basin import load_basin_config
 from philflood.pipelines.monitoring import run_monitoring_pipeline
 ```
 
