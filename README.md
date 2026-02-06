@@ -1,5 +1,7 @@
 # GLOFAS Philippines Flood Forecasting
 
+> **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are currently using placeholder implementations and will be completed in v1.0 (Q2 2026). See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
+
 An open-source early action flood trigger system for the Philippines using Global Flood Awareness System (GloFAS) forecasts and Extreme Value Theory (EVT) statistical modeling.
 
 ## What This Project Does
@@ -44,10 +46,20 @@ GLOFAS_ImpactFloodForecasting_PHL/
 │   ├── notebooks/            # Interactive EVT calibration workflow
 │   └── scripts/              # Batch calibration and config generation
 ├── src/philflood/            # Reusable package code
-│   ├── adapters/            # GRIB extraction, data loading
-│   ├── calibration/         # EVT model fitting
+│   ├── adapters/            # GRIB extraction, CLIMADA interfaces, data loading
+│   ├── calibration/         # EVT model fitting and statistical calibration
+│   ├── cli.py               # Command-line interface entry point
+│   ├── config/              # YAML configuration schema and loading
+│   ├── domain/              # Core business logic and domain entities
+│   ├── geo/                 # Spatial operations (HydroBASINS, WorldPop)
+│   ├── models/              # Statistical and impact models
+│   │   ├── ev/             # Extreme value (EVT/POT) models
+│   │   ├── impact/         # Population impact calculations
+│   │   └── risk/           # Risk metrics (AEP/OEP)
 │   ├── ops/                 # Operational monitoring and validation
-│   └── utils/               # Memory management, logging
+│   ├── pipelines/           # Orchestration workflows (monitoring, validation)
+│   ├── qc/                  # Quality control checks
+│   └── utils/               # Memory management, logging utilities
 ├── ops/                      # Production configuration and monitoring
 │   ├── configs/            # Basin-specific YAML parameters
 │   └── pipeline/           # Scheduled monitoring scripts
@@ -55,6 +67,8 @@ GLOFAS_ImpactFloodForecasting_PHL/
 ├── tests/                    # Smoke tests and test data generation
 └── docs/                     # Comprehensive guides
 ```
+
+For detailed explanation of the module architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Quick Links
 
@@ -78,7 +92,7 @@ Please ensure all contributions:
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/GLOFAS_ImpactFloodForecasting_PHL.git
+git clone https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL.git
 cd GLOFAS_ImpactFloodForecasting_PHL
 
 # Create conda environment with all dependencies
@@ -98,8 +112,8 @@ PhilFlood requires only **4 core packages** (all others are automatically includ
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `climada` | ≥3.0.0 | Flood hazard modeling, centroids, impact calculation |
-| `climada-petals` | ≥1.0.0 | Regridding and flood depth interpolation |
+| `climada` | ≥3.0.0 | Flood hazard modeling, centroids, impact calculation (v1.0: full integration) |
+| `climada-petals` | ≥1.0.0 | Regridding and flood depth interpolation (v1.0: full integration) |
 | `ipywidgets` | ≥7.6.0 | Interactive Jupyter notebook diagnostics |
 | `pyextremes` | ≥2.3.0 | Extreme Value Theory: POT/GPD calibration |
 
@@ -157,7 +171,7 @@ Do NOT manually install numpy, pandas, xarray, etc. - these are automatically in
 
 ## License
 
-[License details here]
+Licensed under GPL-3.0. See [LICENSE](LICENSE) for details.
 
 ## Citation
 
@@ -165,7 +179,7 @@ If you use PhilFlood in research or operational settings, please cite:
 
 ```
 PhilFlood: Open-source early action flood trigger for the Philippines
-Repository: https://github.com/yourusername/GLOFAS_ImpactFloodForecasting_PHL
+Repository: https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL
 ```
 
 

@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.1] - February 6, 2026 (In Progress)
+
+### Critical Bug Fix: Discharge-to-Return-Period Function Consolidation
+
+**Issue Identified & Fixed:** Two different implementations of `discharge_to_return_period()` existed in the codebase with a critical mathematical discrepancy in the exponential case (|ξ| < 1e-6), causing a **63.2% error** in return period calculations.
+
+**Root Cause:**
+- **Notebook function** (`01_evt_pot_calibration_workflow.ipynb`, Section 13.5): Incorrectly implemented exponential case as `T = σ / (λ * (q - u))` (wrong)
+- **Module function** (`src/philflood/calibration/evt_pot.py`): Correctly implemented as `T = (1/λ) * exp[(q-u)/σ]` (correct per EVT theory)
+
+**Error Magnitude (Example):**
+- Input: u=100 m³/s, σ=50 m³/s, λ=2 events/year, q=150 m³/s
+- Notebook result: 0.5 years (WRONG)
+- Correct result: 1.359 years (63.2% error)
+
+**Solution Implemented:**
+1. **Removed** the buggy local function from notebook 01, Section 13.5
+2. **Added import** statement: `from philflood.calibration.evt_pot import discharge_to_return_period_pot`
+3. **Updated** all call sites to use `discharge_to_return_period_pot()` instead of local `discharge_to_return_period()`
+4. **Verified** that Notebook 02 does not use these functions directly (no changes needed there)
+
+**Files Modified:**
+- `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 13.5: replaced function definition with import + updated function call)
+- `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` (Section 8: fixed index vs. label selection ambiguity)
+
+**Additional Fix: Index vs. Label Selection in Visualizations**
+
+**Issue:** Section 8 visualizations used positional index selection (`.isel(event=idx)`) instead of label-based selection (`.sel(event=rp)`), creating fragility when return period order changes.
+
+**Impact:** If `rps_display = [10, 20, 50, 100, 200, 500]` doesn't match the actual data order `[10, 20, 50, 75, 100, 200, 500]`, visualizations would show wrong return periods (e.g., idx=3 would select RP=75 instead of RP=100).
+
+**Solution:** Replaced all 4 vulnerable `.isel(event=event_idx)` calls in Section 8 (8.3, 8.5, 8.6, 8.7) with `.sel(event=rp)` for robust label-based selection.
+
+**Benefits:**
+- ✅ Explicit: Code references `RP=100` directly, not "position 3"
+- ✅ Robust: Works even if return period order changes
+- ✅ Fail-safe: Clear warnings if RP doesn't exist
+- ✅ Maintainable: Adding/removing RPs doesn't break visualizations
+
+**Theory Verification:**
+- Confirmed correct formula per Peaks-Over-Threshold (POT) / Extreme Value Theory (EVT) literature (Coles 2001, Pickands 1975, WMO 2016)
+- Both exponential (ξ → 0) and GPD cases (ξ ≠ 0) validated against theoretical formulas
+- Test suite `tests/test_pot_climada_integration.py` already validates `discharge_to_return_period_pot()` with 11 test cases ✓
+
+**Impact on Results:**
+- Return period grid calculations now use mathematically correct formula
+- Flood depth interpolation in Notebook 02 will reflect corrected return periods
+- Estimated impact: **Up to 63% adjustment in return period values** for cells with small ξ (exponential-like tails)
+
+**Verification Checklist:**
+- ✅ Function comparison documented and analyzed
+- ✅ Bug quantified with test case (63.2% error)
+- ✅ Correct function identified from EVT theory
+- ✅ Codebase audited for usage patterns
+- ✅ Consolidation implemented (single source of truth)
+- ✅ Existing test suite covers correct function
+
+---
+
 ## [0.3.0] - February 2, 2026
 
 ### CLIMADA Integration Phase - Formula-Based POT Implementation
@@ -19,10 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Section 13: Generate CF-1.8 NetCDF with proper 3D structure + stakeholder visualizations
 
 **Files Modified:**
-- `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` (Sections 5, 6, 13)
-- `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 11C: formula-based bootstrap)
 
-**Testing:** See [VERIFICATION_CHECKLIST_v0.3.0.md](VERIFICATION_CHECKLIST_v0.3.0.md)
+**Testing:** See [VERIFICATION_CHECKLIST_v0.3.0.md](docs/archive/VERIFICATION_CHECKLIST_v0.3.0.md)
 
 **Impact:**
 - ✅ 0% data loss (previously 87.5%)
