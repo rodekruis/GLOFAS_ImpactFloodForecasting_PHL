@@ -200,43 +200,6 @@ Before going live:
 - [ ] Team trained on alert interpretation and response
 - [ ] Documentation updated for local team
 
-## Troubleshooting
-
-| Issue | Cause | Solution |
-|---|---|---|
-| "Connection timeout" | GloFAS data server unreachable | Retry in 1 hour; check network connectivity |
-| "No data for date" | Forecast not yet released | GloFAS releases forecasts 6-12 hrs after issue |
-| "Invalid basin config" | Threshold values unrealistic | Re-run calibration; check EVT parameters |
-| "Memory exhausted" | Too many basins in parallel | Reduce `--max-workers` or increase system RAM |
-| "Trigger stuck on" | Forecast quality issue | Manually review forecast data; may need threshold adjustment |
-
----
-
-### Option 2: Linux Cron
-
-**Step 1:** Create script `run_monitoring.sh`:
-
-```bash
-#!/bin/bash
-cd /opt/philflood
-source venv/bin/activate
-philflood monitor --basin-dir ops/configs/basins --output logs/monitoring_$(date +%Y%m%d).json --format json 2>&1 | tee -a logs/monitoring.log
-```
-
-**Step 2:** Add to crontab:
-
-```bash
-chmod +x run_monitoring.sh
-
-# Edit crontab
-crontab -e
-
-# Add line: Run daily at 06:00 UTC
-0 6 * * * /opt/philflood/run_monitoring.sh
-```
-
----
-
 ## Docker Deployment
 
 ### Dockerfile
@@ -628,4 +591,4 @@ philflood monitor --basins ops/configs/basins/example_basin.yaml
 
 ---
 
-**Need help?** See [QuickStart Guide](quickstart.md) or contact the IBF team.
+**Need help?** See [Getting Started Guide](../getting-started/quickstart.md) or contact the IBF team.

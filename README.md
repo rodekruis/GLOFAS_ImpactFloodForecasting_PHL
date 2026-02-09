@@ -68,26 +68,28 @@ GLOFAS_ImpactFloodForecasting_PHL/
 └── docs/                     # Comprehensive guides
 ```
 
-For detailed explanation of the module architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed explanation of the module architecture, see [docs/technical/ARCHITECTURE.md](docs/technical/ARCHITECTURE.md).
 
 ## Quick Links
 
-- **Getting Started**: [Quickstart Guide](docs/quickstart.md) – Installation and first run (15 minutes)
-- **Production Deployment**: [Deployment Guide](docs/deployment.md) – Scheduled monitoring, Docker, cloud options
-- **Methods & Theory**: [Methods Overview](docs/methods_onepager.md) – EVT approach, data flow, references
+- **📖 Full Documentation Hub**: [Docs Index](docs/README.md) – Navigation by role, reading order, all guides
+- **🚀 Getting Started**: [Quickstart Guide](docs/getting-started/quickstart.md) – Installation and first run (15 minutes)
+- **⚙️ Production Deployment**: [Deployment Guide](docs/operations/deployment.md) – Scheduled monitoring, Docker, cloud options
+- **📊 Methods & Theory**: [Methods Overview](docs/technical/methods-overview.md) – EVT approach, data flow, references
+- **❓ FAQ**: [Frequently Asked Questions](docs/getting-started/FAQ.md) – Common issues and solutions
+- **🔧 Troubleshooting**: [Full Troubleshooting Guide](docs/user-guides/troubleshooting.md) – Organized by problem type
 
 ## How to Contribute
 
+See [Contributing Guide](docs/contributing/CONTRIBUTING.md) for full development workflow, code standards, and PR process.
+
+**Areas to contribute:**
 1. **Calibration improvements**: Add new basins or refine EVT threshold selection in `calibration/notebooks/`
 2. **New data sources**: Extend adapters in `src/philflood/adapters/` for alternative forecast systems
 3. **Operational enhancements**: Improve monitoring logic in `src/philflood/ops/`
 4. **Documentation**: Clarify methodology or add deployment examples in `docs/`
 
-Please ensure all contributions:
-- Include unit tests in `tests/`
-- Follow the existing code structure (separate calibration and operations layers)
-- Update relevant YAML configs and documentation
-- Are validated with `philflood validate` before submission
+All contributions are reviewed according to guidelines in [CONTRIBUTING.md](docs/contributing/CONTRIBUTING.md) and [TESTING.md](docs/contributing/TESTING.md).
 
 ## Installation
 
@@ -133,7 +135,7 @@ pip install -r requirements.txt
 **Solution:** Use the streaming adapter designed for large datasets
 - The system automatically uses memory-efficient streaming extraction
 - If manual processing, use `src/philflood/adapters/glofas_grib_v4_optimized.py`
-- See [Methods Overview](docs/methods_onepager.md#streaming-grib-extraction-architecture) for details
+- See [Methods Overview](docs/technical/methods-overview.md#streaming-grib-extraction-architecture) for details
 
 ### Return Period Mismatches (Only 1 of 8 in Output)
 

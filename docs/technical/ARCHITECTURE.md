@@ -194,16 +194,16 @@ Configuration → config/basin.py → qc/timeseries.py → pipelines/validation 
 - Real-time GloFAS ingestion (currently manual download)
 - Automated model retraining pipeline
 
-See [CHANGELOG.md](../CHANGELOG.md) for detailed roadmap.
+See [CHANGELOG.md](../../CHANGELOG.md) for detailed roadmap.
 
 ---
 
 ## Navigation Tips
 
 ### **I want to...**
-- **Understand the methodology** → [docs/methods_onepager.md](methods_onepager.md)
-- **Run my first calibration** → [docs/quickstart.md](quickstart.md)
-- **Deploy to production** → [docs/deployment.md](deployment.md)
+- **Understand the methodology** → [Methods Overview](methods-overview.md)
+- **Run my first calibration** → [Getting Started Guide](../getting-started/quickstart.md)
+- **Deploy to production** → [Deployment Guide](../operations/deployment.md)
 - **Modify EVT calibration** → `src/philflood/calibration/` + `calibration/notebooks/`
 - **Add a new data source** → Implement new adapter in `src/philflood/adapters/`
 - **Change trigger logic** → `src/philflood/ops/trigger.py`

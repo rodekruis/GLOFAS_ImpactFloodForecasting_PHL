@@ -41,6 +41,8 @@ pip install -e ".[dev]" --no-deps
 
 # Optional: operations extras (scheduler/logging/CLI niceties)
 pip install -e ".[ops]" --no-deps
+```
+
 ---
 
 ## Step 2: Verify Installation
@@ -77,7 +79,7 @@ cp ops/configs/basins/example_basin.yaml ops/configs/basins/my_basin.yaml
 
 ### 4.2 Edit Basic Information
 
-Open [ops/configs/basins/my_basin.yaml](../ops/configs/basins/my_basin.yaml) and update:
+Open `ops/configs/basins/my_basin.yaml` and update:
 
 ```yaml
 basin_id: my_basin_name
@@ -87,7 +89,10 @@ glofas_point_ids:
 data_root: "C:/data/my_basin"  # Path to your data folder
 ```
 Re-validate:
+```powershell
 philflood validate ops/configs/basins/my_basin.yaml
+```
+
 ---
 
 ## Step 5: Run Calibration (Research Phase)
@@ -217,7 +222,7 @@ pip install climada
 
 ---
 
-## Step 7: Validate Your Calibration
+## Step 8: Validate Your Calibration
 
 ### Quick Validation Checks
 
@@ -292,15 +297,15 @@ print(" CLIMADA-compatible structure confirmed")
 ## Next Steps
 
 1. **Add More Basins**: Copy your working config and calibrate additional basins
-2. **Schedule Monitoring**: See [Deployment Guide](deployment.md) for automation
-3. **Integrate Notifications**: Extend [run_monitoring_once.py](../ops/pipeline/run_monitoring_once.py) to send alerts
+2. **Schedule Monitoring**: See [Deployment Guide](../operations/deployment.md) for automation
+3. **Integrate Notifications**: Extend [run_monitoring_once.py](../../ops/pipeline/run_monitoring_once.py) to send alerts
 4. **Connect to Real Data**: Configure access to GloFAS forecast API
 
 ---
 
 ## Getting Help
 
-- **Documentation**: See [docs/methods_onepager.md](methods_onepager.md) for methodology
+- **Documentation**: See [Methods Overview](../technical/methods-overview.md) for methodology
 - **Issues**: Report problems via GitHub Issues
 - **Questions**: Contact the IBF team
 
@@ -308,7 +313,7 @@ print(" CLIMADA-compatible structure confirmed")
 
 ## Directory Structure Reference
 
-For a complete view of the codebase organization, see the [main README](../README.md#directory-structure). Key directories for this quickstart:
+For a complete view of the codebase organization, see the [main README](../../README.md#directory-structure). Key directories for this quickstart:
 
 - **`calibration/notebooks/`** - Interactive EVT calibration workflows
 - **`src/philflood/calibration/`** - Statistical model fitting code  
@@ -316,9 +321,8 @@ For a complete view of the codebase organization, see the [main README](../READM
 - **`ops/configs/basins/`** - Basin-specific configuration files
 - **`data/processed/calibration/`** - Calibration outputs
 
-For architecture details, see [docs/ARCHITECTURE.md](ARCHITECTURE.md).
+For architecture details, see [ARCHITECTURE.md](../technical/ARCHITECTURE.md).
 
 ---
 
 **You're ready to go!** 🚀
-

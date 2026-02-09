@@ -1,6 +1,6 @@
-# Methods & Technical Approach
+# Methods & Technical Approach Overview
 
-This document provides a concise overview of PhilFlood's statistical methodology and system architecture for practitioners and decision-makers.
+This document provides a comprehensive overview of PhilFlood's statistical methodology and system architecture for practitioners and decision-makers.
 
 ## Extreme Value Theory (EVT) Approach
 
@@ -36,6 +36,51 @@ Where $n_{\text{exceedances}}$ is the annual number of threshold crossings.
 
 Example: If threshold is exceeded 2.5 times/year on average, and $P(X > 2000) = 0.02$:
 $$T = \frac{1}{2.5 \times 0.02} = 20 \text{ years}$$
+
+---
+
+## Quick Reference: POT + CLIMADA Integration
+
+### Discharge-to-Return Period Formulas
+
+Given: $u$ (threshold), $\sigma$ (sigma), $\xi$ (xi), $\lambda$ (lambda_events_per_year)
+
+**Return Period → Discharge**:
+$$Q(T) = \begin{cases}
+u + \sigma \ln(\lambda_u T) & \text{if } |\xi| < 10^{-6} \\
+u + \frac{\sigma}{\xi}((\lambda_u T)^\xi - 1) & \text{otherwise}
+\end{cases}$$
+
+**Discharge → Return Period (inverse)**:
+$$T = \begin{cases}
+\frac{1}{\lambda_u} \exp\left(\frac{Q-u}{\sigma}\right) & \text{if } |\xi| < 10^{-6} \\
+\frac{1}{\lambda_u} \left(1 + \xi \frac{Q-u}{\sigma}\right)^{1/\xi} & \text{if valid bracket}
+\end{cases}$$
+
+**Python implementation**:
+```python
+def q_T(T, u, sigma, xi, lambda_u):
+    """Return Period → Discharge"""
+    if abs(xi) < 1e-6:
+        return u + sigma * np.log(lambda_u * T)
+    else:
+        return u + (sigma/xi) * ((lambda_u * T)**xi - 1)
+
+def T_of_q(q, u, sigma, xi, lambda_u):
+    """Discharge → Return Period (inverse)"""
+    y = q - u
+    if y <= 0:
+        return np.nan
+    if abs(xi) < 1e-6:
+        return (1.0/lambda_u) * np.exp(y/sigma)
+    else:
+        bracket = 1.0 + xi * y / sigma
+        if bracket <= 0:
+            return np.nan
+        return (1.0/lambda_u) * (bracket**(1.0/xi))
+```
+
+---
 
 ## Streaming GRIB Extraction Architecture
 
@@ -227,5 +272,3 @@ trigger_parameters:
 
 - **CLIMADA Model**:
   - Aznar-Siguan, G., & Bresch, D. N. (2019). A probabilistic framework for modeling the vulnerability of buildings to climate hazards. NHESS.
-
----

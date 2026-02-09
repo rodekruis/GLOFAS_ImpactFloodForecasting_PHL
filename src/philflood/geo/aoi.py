@@ -62,9 +62,15 @@ def geodesic_buffer(point: "Point", radius_km: float, n: int = 72, ellps: str = 
 
 
 def build_municipality_aoi(muni_polygon: "Polygon", pop_centroid: "Point", buffer_km: float = 5.0) -> AOIResult:
-    """Build AOI = geodesic_buffer(centroid, buffer_km) ∩ municipality polygon."""
-    buf = geodesic_buffer(pop_centroid, radius_km=buffer_km)
-    aoi = buf.intersection(muni_polygon)
-    if aoi.is_empty:
-        raise RuntimeError("AOI buffer does not intersect municipality polygon. Check input geometries.")
-    return AOIResult(centroid=pop_centroid, buffer_km=float(buffer_km), aoi_polygon=aoi)
+    """DEPRECATED: This function builds an AOI using a population-weighted centroid and circular buffer.
+    
+    As of February 2026, this function is deprecated in favor of direct municipality-watershed
+    intersection without population weighting. Use select_l12_direct_intersection() instead.
+    
+    This function is retained for backward compatibility only and should not be used in
+    new workflows.
+    """
+    raise NotImplementedError(
+        "build_municipality_aoi() is deprecated. Use direct L12 selection by municipality "
+        "polygon intersection instead (without population centroid or buffering)."
+    )
