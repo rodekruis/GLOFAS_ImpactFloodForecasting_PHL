@@ -214,9 +214,9 @@ See [CHANGELOG.md](../CHANGELOG.md) for detailed roadmap.
 ```python
 # Correct module imports
 from philflood.adapters.glofas_grib_v4_optimized import extract_timeseries_streaming
-from philflood.calibration.evt_calibrator import calibrate_pot_model
-from philflood.models.ev.pot_calibration import calculate_return_levels
-from philflood.config.loader import load_basin_config
+from philflood.calibration.evt_pot import calibrate_pot_model
+from philflood.models.ev.peaks_over_threshold import calculate_return_levels
+from philflood.config.basin import load_basin_config
 from philflood.pipelines.monitoring import run_monitoring_pipeline
 ```
 
