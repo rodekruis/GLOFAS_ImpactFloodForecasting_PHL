@@ -45,8 +45,8 @@ Tools for offline model calibration:
 - Diagnostic plotting and model validation
 
 **Key files:**
-- `evt_calibrator.py` - Main calibration workflow
-- `diagnostics.py` - Mean residual life plots, parameter stability
+- `evt_pot.py` - Main EVT Peaks-Over-Threshold (POT) calibration workflow
+- Diagnostics and threshold-analysis helpers under `models/ev/` - Mean residual life plots, parameter stability
 
 #### **`config/`** - Configuration Management
 YAML configuration schema and loading:
