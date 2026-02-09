@@ -96,7 +96,7 @@ Data quality checks and validation:
 - Spatial extent verification
 
 **Key files:**
-- `data_quality.py` - Quality check implementations
+- `timeseries.py` - Time series quality check implementations
 
 #### **`utils/`** - Cross-cutting Utilities
 Shared infrastructure code:
