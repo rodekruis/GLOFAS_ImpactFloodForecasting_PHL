@@ -35,7 +35,8 @@ Implements scientific models for risk quantification:
 - **`risk/`** - Risk metrics including Annual Exceedance Probability (AEP) and Occurrence Exceedance Probability (OEP)
 
 **Key files:**
-- `models/ev/pot_calibration.py` - Peaks Over Threshold (POT) calibration
+- `models/ev/peaks_over_threshold.py` - Peaks Over Threshold (POT) event extraction and declustering
+- `models/ev/gpd_fit.py` - POT GPD fitting and return-level estimation
 - `models/impact/population_exposure.py` - Population-at-risk calculations (v0.3: placeholder)
 
 #### **`calibration/`** - Statistical Model Fitting
