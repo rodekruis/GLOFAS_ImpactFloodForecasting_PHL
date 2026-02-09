@@ -134,7 +134,7 @@ GloFAS Forecast → adapters → models/ev → models/impact → ops/trigger →
    (Real-time)     (extract)  (Q→RP)    (RP→People)    (threshold)   (email)
 ```
 
-1. **Ingest** forecast via `adapters/glofas_grib.py`
+1. **Ingest** forecast via `adapters/glofas_grib_v4_optimized.py`
 2. **Convert** discharge to return period using calibrated `models/ev/` parameters
 3. **Calculate** population impact via `models/impact/` (v1.0: full integration)
 4. **Evaluate** triggers using `ops/trigger.py` logic
