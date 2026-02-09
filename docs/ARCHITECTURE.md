@@ -105,9 +105,9 @@ Shared infrastructure code:
 - Date/time utilities
 
 **Key files:**
-- `memory.py` - Memory profiling and optimization
-- `logging.py` - Structured logging setup
-
+- `memory_utils.py` - Memory profiling and optimization helpers
+- `paths.py` - Common filesystem and path utilities
+- `ops/logging_config.py` - Structured logging setup (under `src/philflood/ops/`)
 #### **`cli.py`** - Command-Line Interface
 Main entry point for the `philflood` command:
 ```bash
