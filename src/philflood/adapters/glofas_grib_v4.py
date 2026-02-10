@@ -191,6 +191,9 @@ def cells_within_polygon(
 ) -> pd.DataFrame:
     """Extract all GloFAS grid cell centers that intersect a polygon.
     
+    **NEW BEHAVIOR**: Returns cells whose boundaries touch/intersect the polygon,
+    not just those whose centroids fall inside.
+    
     Args:
         ds: xarray Dataset (opened GRIB)
         polygon: shapely.geometry.Polygon (in EPSG:4326)
@@ -201,20 +204,36 @@ def cells_within_polygon(
         where idx/idy are the array indices in the GRIB grid.
     """
     _require_xr()
-    from shapely.geometry import Point
+    from shapely.geometry import Point, box
     import logging
+    import numpy as np
     logger = logging.getLogger(__name__)
     
     lat_name, lon_name = infer_lat_lon_names(ds)
     lats = ds[lat_name].values
     lons = ds[lon_name].values
     
-    # Build a list of cell centers that intersect the polygon
+    # Compute cell half-width (assuming regular grid)
+    lat_res = float(np.median(np.abs(np.diff(lats)))) if len(lats) > 1 else 0.05
+    lon_res = float(np.median(np.abs(np.diff(lons)))) if len(lons) > 1 else 0.05
+    
+    half_lat = lat_res / 2.0
+    half_lon = lon_res / 2.0
+    
+    # Build a list of cell centers whose BOUNDARIES intersect the polygon
     cells = []
     for i, lat in enumerate(lats):
         for j, lon in enumerate(lons):
-            pt = Point(lon, lat)
-            if polygon.intersects(pt):
+            # Create cell boundary box
+            cell_box = box(
+                lon - half_lon,  # minx
+                lat - half_lat,  # miny
+                lon + half_lon,  # maxx
+                lat + half_lat   # maxy
+            )
+            
+            # Check if cell boundary intersects polygon
+            if cell_box.intersects(polygon):
                 cells.append({
                     'cell_lat': float(lat),
                     'cell_lon': float(lon),
@@ -223,7 +242,7 @@ def cells_within_polygon(
                 })
     
     if not cells:
-        logger.warning(f"No grid cells found within polygon bounds")
+        logger.warning(f"No grid cells found intersecting polygon bounds")
         return pd.DataFrame(columns=['cell_lat', 'cell_lon', 'cell_idx', 'cell_idy'])
     
     return pd.DataFrame(cells)
