@@ -266,6 +266,161 @@ vim ops/configs/basins/problematic.yaml
 
 ---
 
+## Notebook 03 (Validation) Issues
+
+### "CLIMADA-Petals not found" (Pre-flight check fails)
+**Cause**: Optional library not installed  
+**Fix**:
+```bash
+pip install climada[petals]>=3.0.0
+```
+**Note**: Same as Notebook 2 requirement. Check [CLIMADA-Specific Issues](#climada-specific-issues) above.
+
+### "GFM validation directory not found"
+**Cause**: `GFM_VALIDATION_ROOT` path incorrect or GFM files missing  
+**Fix**:
+1. Verify path exists and is readable:
+   ```python
+   from pathlib import Path
+   gfm_path = Path("your/path/to/GFM")
+   print(gfm_path.exists())
+   print(list(gfm_path.glob("*.tif")))  # Check for GeoTIFF files
+   ```
+2. Update Notebook 03 Cell 6:
+   ```python
+   GFM_VALIDATION_ROOT = Path("data/raw/glofas/GFM")  # Adjust path
+   ```
+3. See [GFM Data Guide](gfm-data-guide.md) for format requirements
+
+### "Output directory not writable"
+**Cause**: Permissions issue on output destination  
+**Fix**:
+```bash
+# Check permissions
+ls -ld data/processed/validation/
+# Make writable (Linux/Mac)
+chmod 755 -R data/processed/validation/
+# (Windows): Right-click folder → Properties → Security → Edit permissions
+```
+
+### "Calibration auto-detect failed: No recent calibration found"
+**Cause**: Notebook 1 outputs missing or in unexpected location  
+**Fix**:
+1. Verify Notebook 1 completed successfully
+2. Check output exists: `data/processed/calibration/evt_pot/{BASIN_ID}/{RUN_TAG}/`
+3. Manually specify in Notebook 03 Cell 8:
+   ```python
+   AUTO_DETECT = False
+   basin_id_input = "Cagayan_01"
+   run_tag_input = "20260209_test"
+   ```
+
+### "ValueError: Could not parse GFM filenames"
+**Cause**: GFM file naming doesn't match expected pattern  
+**Fix**:
+1. Check file names. Expected formats:
+   - `extent__YYYYMMDD.tif` (e.g., `extent__20241215.tif`)
+   - `extent__YYYY-MM-DD.tif`
+   - Similar with date patterns
+2. Rename files to match expected pattern
+3. Or adjust date parsing in Notebook 03 Cell 10:
+   ```python
+   # See code for custom date format handling
+   ```
+4. See [GFM Data Guide](gfm-data-guide.md) for naming conventions
+
+### "Only X% of gauges have timeseries data"
+**Cause**: Some discharge files missing or incomplete  
+**Fix**:
+- If > 50%: Proceed, results will be sparse but valid
+- If < 30%: Investigate why discharge files missing
+  - Check Notebook 1 extraction completed
+  - Verify GloFAS data coverage for your basin
+  - Check historical vs. forecast data availability
+- Missing data is noted in output; results still valid
+
+### "Dimension mismatch during reprojection"
+**Cause**: CRS or grid alignment issue  
+**Fix**:
+1. Run diagnostic cells (Notebook 03 Cells 13-14) to inspect coordinates
+2. Verify all data in EPSG:4326 (WGS84 lat/lon):
+   ```python
+   import rasterio
+   with rasterio.open("your_file.tif") as src:
+       print(src.crs)  # Should be EPSG:4326
+   ```
+3. Check basin boundary is valid:
+   ```python
+   print(aoi_boundary.is_valid)
+   print(aoi_boundary.bounds)  # Should be W, S, E, N in lat/lon
+   ```
+
+### "Memory error during raster reprojection"
+**Cause**: Large basin or high-resolution data  
+**Fix**:
+1. Enable LOW_RAM_MODE in Notebook 03 Cell 3:
+   ```python
+   LOW_RAM_MODE = True
+   ```
+2. Reduce AOI (fewer municipalities selected)
+3. Run on machine with more available RAM
+4. Process smaller episode date ranges
+
+### "JRC tile download taking >2 hours"
+**Cause**: Slow internet or server load  
+**Fix**:
+- Check internet connection
+- JRC servers in Europe (higher latency from Asia/Oceania)
+- Run during off-peak hours (e.g., early morning UTC)
+- Tiles are cached: subsequent runs much faster
+- Can interrupt and resume (partial downloads re-used)
+
+### "NaN values in return period or depth maps"
+**Cause**: Missing gauge data or interpolation issues  
+**Fix**:
+- This is often expected (data gaps are normal)
+- Check gauge availability (Notebook 03 Section 7 output)
+- Verify AOI includes several gauges within it
+- NaN regions noted in metrics CSV
+
+### "Confusion matrix metrics are zero or NaN"
+**Cause**: No overlap between predicted and observed extent, or data issue  
+**Fix**:
+1. Check raw extents are present:
+   ```python
+   print(observed_extent.sum())  # Should be > 0
+   print(modeled_extent.sum())
+   ```
+2. Verify observed GFM files loaded correctly
+3. Check depth threshold hasn't clipped all data
+4. Inspect difference maps in output directory
+
+### "Dashboard HTML not loading in browser"
+**Cause**: File path issue or browser compatibility  
+**Fix**:
+1. Open file directly (avoid network issues):
+   - Right-click HTML file → Open with → Browser
+   - Or drag file into browser tab
+  - Ensure no spaces in file path
+2. Try different browser (Chrome, Firefox, Edge preferred)
+3. Check browser console for errors (F12 → Console tab)
+4. If Leaflet map loads but no tiles: check internet for basemap tile access
+
+### "Dashboard shows all NaN values on map"
+**Cause**: Extent data not loaded correctly  
+**Fix**:
+1. Verify extent GeoTIFFs exist in `maps_for_dashboard/` folder
+2. Check GeoTIFFs have valid data (not all nodata):
+   ```python
+   import rasterio
+   with rasterio.open("file.tif") as src:
+       data = src.read(1)
+       print(data.min(), data.max())  # Should have some valid values
+   ```
+3. Check Notebook 03 Section 11 completed without errors
+
+---
+
 ## Debugging Tips
 
 ### Enable Verbose Output

@@ -17,6 +17,7 @@ Welcome to the PhilFlood documentation! This hub guides you to the right resourc
 - [Notebook 1 Calibration Workflow](user-guides/notebook01-calibration-guide.md) - Deep dive into basin calibration
 - [Notebook 2 Hazard Analysis](user-guides/notebook02-hazard-guide.md) - Flood depth mapping and CLIMADA integration  
 - [Notebook 2 Quickstart](user-guides/notebook02-quickstart.md) - 5-minute quick reference  
+- [Notebook 3 Validation & QA](user-guides/notebook03-validation-guide.md) - Validate calibration against observations, interactive dashboard
 - [Troubleshooting Guide](user-guides/troubleshooting.md) - Solutions to common issues
 - [FAQ](getting-started/FAQ.md) - Q&A on calibration, data, CLIMADA
 
@@ -57,6 +58,7 @@ docs/
 │   ├── notebook01-calibration-guide.md
 │   ├── notebook02-hazard-guide.md
 │   ├── notebook02-quickstart.md
+│   ├── notebook03-validation-guide.md
 │   └── troubleshooting.md
 │
 ├── operations/                        # For operators
@@ -195,6 +197,10 @@ Trigger Alert (JSON)
 - [Section 4 Optimization](technical/notebook02-section4-optimization.md) - Performance tuning
 - [Methods Overview - CLIMADA section](technical/methods-overview.md#return-period-to-hazard-integration-climada)
 
+### Validation & Quality Assurance
+- [Notebook 3 Validation Guide](user-guides/notebook03-validation-guide.md) - Extent validation and metrics
+- [GLOSSARY - Validation Metrics](technical/GLOSSARY.md#validation--metrics-notebook-03) - F1, IoU, Precision, Recall definitions
+
 ### Operational Deployment
 - [Deployment Guide](operations/deployment.md) - All scheduling options
 - [FAQ Operational Section](getting-started/FAQ.md#operational-monitoring) - Monitoring questions
@@ -215,6 +221,9 @@ Trigger Alert (JSON)
 3. [Notebook 1 Guide](user-guides/notebook01-calibration-guide.md) (30 min)
 4. Run Notebook 1 (2-3 hours)
 5. [Notebook 2 Quickstart](user-guides/notebook02-quickstart.md) (5 min)
+6. Run Notebook 2 (20-30 min)
+7. [Notebook 3 Validation Guide](user-guides/notebook03-validation-guide.md) (20 min) - **Before operational deployment**
+8. Run Notebook 3 (30-60 min)
 
 ### For Operators
 1. [Deployment Guide](operations/deployment.md) (20 min)

@@ -249,6 +249,110 @@ Decision rule for issuing flood alert. PhilFlood triggers when:
 
 ---
 
+## Validation & Metrics (Notebook 03)
+
+### Bias
+Ratio of predicted extent to observed extent. Used to diagnose systematic over/under-prediction.
+
+**Formula**: Bias = (TP + FP) / (TP + FN)
+
+**Interpretation**:
+- **Bias > 1.0**: Model overpredicts (predicts more flood area than observed)
+- **Bias < 1.0**: Model underpredicts (predicts less flood area than observed)
+- **Bias ≈ 1.0**: Model extent matches observed (neutral)
+
+**Range**: 0.0 to infinity. Values 0.8-1.2 considered "good" (within 20% area match).
+
+### Confusion Matrix
+2×2 table comparing predicted vs. observed flood extent at a given depth threshold:
+
+|  | Flooded (Model) | Not Flooded (Model) |
+|---|---|---|
+| **Flooded (Observed)** | TP (True Positive) | FN (False Negative) |
+| **Not Flooded (Observed)** | FP (False Positive) | TN (True Negative) |
+
+**Components**:
+- **TP**: Model predicted flood, observation confirmed flood → **Correct prediction** ✓
+- **FP**: Model predicted flood, observation showed NO flood → **False alarm** (over-prediction) ✗
+- **FN**: Model predicted NO flood, observation showed flood → **Missed** (under-prediction) ✗
+- **TN**: Model predicted NO flood, observation confirmed NO flood → **Correct non-prediction** ✓
+
+### F1 Score
+Harmonic mean of precision and recall. Single metric balancing false positives and false negatives.
+
+**Formula**: F1 = 2 × (Precision × Recall) / (Precision + Recall)
+
+**Interpretation**:
+- **0.8-1.0**: Excellent model performance
+- **0.6-0.8**: Good model performance (acceptable for most operational use)
+- **0.4-0.6**: Fair performance (use with caution, document limitations)
+- **0.0-0.4**: Poor performance (model needs refinement)
+
+**Range**: 0 to 1 (higher is better).
+
+**Why F1?** Precision alone ignores misses (dangerous for flood forecasting); Recall alone allows over-prediction (expensive false alarms). F1 balances both.
+
+### False Negative (FN)
+Grid cells where observed flood occurred but model predicted NO flood. Represents **missed flooding** or under-prediction. Critical for operational safety.
+
+**Operational consequence**: Warnings not issued when they should have been → population at risk.
+
+### False Positive (FP)
+Grid cells where model predicted flood but observation showed NO flood. Represents **false alarms**. Common in probabilistic models.
+
+**Operational consequence**: Unnecessary evacuations, resource deployment, economic disruption.
+
+### Intersection over Union (IoU)
+Ratio of overlap between predicted and observed extent to their union. Stricter spatial overlap metric.
+
+**Formula**: IoU = TP / (TP + FP + FN)
+
+**Interpretation**:
+- **0.7-1.0**: Excellent spatial match
+- **0.5-0.7**: Good spatial match
+- **0.3-0.5**: Moderate spatial match (usable with caution)
+- **0.0-0.3**: Poor spatial match
+
+**Range**: 0 to 1 (higher is better).
+
+**Comparison to F1**: IoU penalizes both false positives AND false negatives equally (stricter than F1).
+
+### Precision
+Fraction of model-predicted floods that actually flooded.
+
+**Formula**: Precision = TP / (TP + FP)
+
+**Interpretation**:
+- **0.9-1.0**: 90-100% of predicted floods are accurate (few false alarms)
+- **0.7-0.9**: 70-90% accurate (acceptable false alarm rate)
+- **0.5-0.7**: 50-70% accurate (high false alarm rate)
+
+**Range**: 0 to 1 (higher is better).
+
+**Use**: Diagnose false positive problems (over-prediction). High precision = low false alarms = trust model predictions.
+
+### Recall (Sensitivity)
+Fraction of observed floods that model successfully predicted.
+
+**Formula**: Recall = TP / (TP + FN)
+
+**Interpretation**:
+- **0.9-1.0**: 90-100% of actual floods caught (few misses)
+- **0.7-0.9**: 70-90% caught (acceptable miss rate)
+- **0.5-0.7**: 50-70% caught (high miss rate)
+
+**Range**: 0 to 1 (higher is better).
+
+**Use**: Diagnose false negative problems (under-prediction). High recall = few misses = safe operational use.
+
+### True Negative (TN)
+Grid cells where both observation and model correctly predicted NO flood. Represents **correct non-predictions**.
+
+### True Positive (TP)
+Grid cells where both observation and model predicted flood. Represents **correct positive predictions**.
+
+---
+
 ## File Format Terms
 
 ### CSV (Comma-Separated Values)
@@ -377,13 +481,22 @@ UN agency for meteorology. GloFAS recognized WMO forecasting system.
 | EPS | Ensemble Prediction System | GloFAS |
 | EVT | Extreme Value Theory | Statistical model |
 | FLOPROS | Flood Protection Standards | Hazard adjustments |
+| Bias | Ratio of predicted to observed extent | Validation metric |
+| F1 Score | Harmonic mean of precision & recall | Validation metric |
+| FN | False Negative: missed floods | Confusion matrix |
+| FP | False Positive: false alarms | Confusion matrix |
 | GPD | Generalized Pareto Distribution | EVT distribution |
 | GIS | Geographic Information System | Software |
 | GloFAS | Global Flood Awareness System | Forecast system |
 | GRIB | Gridded Binary | File format |
 | HDF5 | Hierarchical Data Format | File format |
+| IoU | Intersection over Union | Validation metric |
 | OEP | Occurrence Exceedance Probability | Risk metric |
 | POT | Peaks Over Threshold | EVT method |
+| Precision | Accuracy of positive predictions | Validation metric |
+| Recall | Sensitivity / detection rate | Validation metric |
+| TP | True Positive: correct predictions | Confusion matrix |
+| TN | True Negative: correct non-predictions | Confusion matrix |
 | YAML | YAML Ain't Markup Language | Config format |
 
 ---
