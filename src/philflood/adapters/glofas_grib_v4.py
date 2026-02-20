@@ -4,7 +4,7 @@ import hashlib
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
@@ -332,6 +332,7 @@ def extract_daily_discharge_for_points(
     lat_col: str = "lat",
     lon_col: str = "lon",
     discharge_var: Optional[str] = None,
+    verbose: bool = True,
 ) -> pd.DataFrame:
     """Vectorized extraction of discharge for multiple points.
 
@@ -374,15 +375,22 @@ def extract_daily_discharge_for_points(
         total_count = len(idx_time)
         
         if invalid_count > 0:
-            print(f"\n{'='*80}")
-            print(f"⚠️  DATA LOSS WARNING: Invalid dates detected in GRIB file!")
-            print(f"{'='*80}")
-            print(f"Total time steps:       {total_count}")
-            print(f"Invalid date values:    {invalid_count} ({100*invalid_count/total_count:.1f}%)")
-            print(f"Valid date values:      {total_count - invalid_count} ({100*(total_count-invalid_count)/total_count:.1f}%)")
-            print(f"Reason: ECCODES warning (year=0 month=0 day=0) - these rows will be DROPPED")
-            print(f"{'='*80}\n")
-            logger.warning(f"Found {invalid_count}/{total_count} invalid dates in GRIB (year=0 or similar, {100*invalid_count/total_count:.1f}%). These will be dropped.")
+            if verbose:
+                logger.warning(
+                    "Invalid dates in GRIB: %s/%s (%.1f%%). Rows will be dropped.",
+                    invalid_count,
+                    total_count,
+                    100 * invalid_count / total_count,
+                )
+                logger.warning(
+                    "Reason: ECCODES warning (year=0 month=0 day=0)."
+                )
+            else:
+                logger.warning(
+                    "Invalid GRIB dates detected: %s/%s rows dropped.",
+                    invalid_count,
+                    total_count,
+                )
     except Exception as e:
         logger.warning(f"Error parsing dates: {e}. Attempting fallback parsing...")
         try:
@@ -402,29 +410,20 @@ def extract_daily_discharge_for_points(
     valid_rows = out.index.notna()
     rows_dropped = (~valid_rows).sum()
     if rows_dropped > 0:
-        print(f"\n{'='*80}")
-        print(f"📊 DROPPED ROWS - Detailed Analysis by Gauge:")
-        print(f"{'='*80}")
-        print(f"Total rows before filtering: {len(out)}")
-        print(f"Total rows with NaT dates:  {rows_dropped}")
-        print(f"Total rows after filtering: {len(out) - rows_dropped}")
-        
-        # Per-gauge impact analysis
-        out_with_invalid = out.copy()
+        # Per-gauge impact analysis (only when verbose)
         dropped_per_gauge = {}
-        for col in out.columns:
-            # Count NaT values in this gauge
-            nat_count = out_with_invalid[out_with_invalid.index.isna()][col].notna().sum()
-            if nat_count > 0:
-                dropped_per_gauge[col] = nat_count
-        
-        if dropped_per_gauge:
-            print(f"\nDropped records per gauge:")
-            for gauge_id, count in sorted(dropped_per_gauge.items(), key=lambda x: -x[1]):
-                print(f"  - {gauge_id}: {count} records")
-        
-        print(f"{'='*80}\n")
-        logger.info(f"Dropping {rows_dropped} rows with NaT (invalid) dates across {len(dropped_per_gauge)} gauge(s)")
+        if verbose:
+            out_with_invalid = out.copy()
+            for col in out.columns:
+                nat_count = out_with_invalid[out_with_invalid.index.isna()][col].notna().sum()
+                if nat_count > 0:
+                    dropped_per_gauge[col] = nat_count
+
+        logger.info(
+            "Dropping %s rows with invalid dates across %s gauge(s)",
+            rows_dropped,
+            len(dropped_per_gauge),
+        )
         out = out[valid_rows]
 
     long = out.reset_index().melt(id_vars=["date"], var_name=gauge_id_col, value_name="discharge_m3s")
@@ -442,6 +441,8 @@ def load_or_build_gauge_timeseries(
     use_memory_optimization: bool = True,
     gauge_batch_size: int = 2,
     use_streaming: bool = False,
+    verbose: bool = True,
+    progress_cb: Optional[Callable[[int, int, str], None]] = None,
 ) -> Dict[str, pd.Series]:
     """Load or extract daily discharge time series for virtual gauges.
     
@@ -471,6 +472,10 @@ def load_or_build_gauge_timeseries(
     gauge_batch_size : int, optional
         Number of gauges to extract per batch when use_memory_optimization=True.
         Smaller values = less memory but slower. Default 2.
+    verbose : bool, optional
+        If True, emit detailed informational logs. Default True.
+    progress_cb : Optional[Callable[[int, int, str], None]]
+        Optional callback for progress updates (current, total, message).
     
     Returns
     -------
@@ -511,6 +516,8 @@ def load_or_build_gauge_timeseries(
             force=force,
             discharge_var=discharge_var,
             selected_years=selected_years,
+            verbose=verbose,
+            progress_cb=progress_cb,
         )
     
     # Original implementation (with memory optimization)
@@ -589,19 +596,17 @@ def load_or_build_gauge_timeseries(
     # Track which gauges have partial data in temp files
     partial_files = {gid: temp_dir / f"{gid}_partial.parquet" for gid in missing}
     
-    print(f"\n{'='*80}")
-    print(f"📥 TIME SERIES EXTRACTION - Processing Summary")
-    print(f"{'='*80}")
-    print(f"Total gauges required:    {len(gauge_ids)}")
-    print(f"Already cached:           {len(cached)}")
-    print(f"Need to extract:          {len(missing)}")
-    print(f"GRIBs to process:         {len(grib_inventory)}")
-    print(f"Temp directory:           {temp_dir}")
-    if use_memory_optimization:
-        print(f"Memory optimization:      ENABLED (batch size={gauge_batch_size})")
-    else:
-        print(f"Memory optimization:      DISABLED (standard extraction)")
-    print(f"{'='*80}\n")
+    if verbose:
+        logger.info("TIME SERIES EXTRACTION - Processing Summary")
+        logger.info("Total gauges required:    %s", len(gauge_ids))
+        logger.info("Already cached:           %s", len(cached))
+        logger.info("Need to extract:          %s", len(missing))
+        logger.info("GRIBs to process:         %s", len(grib_inventory))
+        logger.info("Temp directory:           %s", temp_dir)
+        if use_memory_optimization:
+            logger.info("Memory optimization:      ENABLED (batch size=%s)", gauge_batch_size)
+        else:
+            logger.info("Memory optimization:      DISABLED (standard extraction)")
 
     # Initialize memory monitor
     memory_monitor = MemoryMonitor(warning_threshold_percent=70.0, error_threshold_percent=85.0)
@@ -612,8 +617,10 @@ def load_or_build_gauge_timeseries(
             logger.debug(f"Skipping {item.year} (not in selected_years={selected_years})")
             continue
             
-        print(f"[{idx+1:2d}/{len(grib_inventory)}] Processing GRIB year {item.year}...")
-        logger.info(f"Processing GRIB {idx+1}/{len(grib_inventory)}: {item.year} ({item.grib_path})")
+        if progress_cb is not None:
+            progress_cb(idx + 1, len(grib_inventory), f"year {item.year}")
+        if verbose:
+            logger.info("Processing GRIB %s/%s: %s (%s)", idx + 1, len(grib_inventory), item.year, item.grib_path)
         ds = None
         try:
             # Open dataset (cfgrib doesn't support chunks, but data is still read efficiently)
@@ -639,12 +646,16 @@ def load_or_build_gauge_timeseries(
                     memory_monitor=memory_monitor,
                 )
             else:
-                long = extract_daily_discharge_for_points(ds, subset_points, discharge_var=discharge_var)
+                long = extract_daily_discharge_for_points(
+                    ds,
+                    subset_points,
+                    discharge_var=discharge_var,
+                    verbose=verbose,
+                )
             
             extracted_count = len(long)
-            gauge_count = long['virtual_gauge_id'].nunique()
-            print(f"        ✓ Extracted {extracted_count} discharge values for {gauge_count} unique gauge(s)")
-            logger.info(f"  Extracted {extracted_count} discharge values for {gauge_count} gauges")
+            gauge_count = long["virtual_gauge_id"].nunique()
+            logger.info("  Extracted %s discharge values for %s gauges", extracted_count, gauge_count)
             
             # ===== NEW: Write incrementally to temp files =====
             for gid, sub in long.groupby("virtual_gauge_id"):
@@ -666,8 +677,7 @@ def load_or_build_gauge_timeseries(
             del long
                 
         except Exception as e:
-            print(f"        ✗ ERROR: {str(e)[:100]}")
-            logger.error(f"  Error processing {item.grib_path}: {e}", exc_info=True)
+            logger.error("  Error processing %s: %s", item.grib_path, e, exc_info=True)
             # Clean up temp files on error
             import shutil
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -683,9 +693,8 @@ def load_or_build_gauge_timeseries(
             gc.collect()
 
     # ===== NEW: Finalize from temp files =====
-    print(f"\n{'='*80}")
-    print(f"💾 FINALIZING - Writing time series to disk")
-    print(f"{'='*80}\n")
+    if verbose:
+        logger.info("FINALIZING - Writing time series to disk")
     
     final_records_summary = {}
     for gid in missing:
@@ -715,15 +724,24 @@ def load_or_build_gauge_timeseries(
             'final': final_count
         }
         
-        print(f"  {gid}")
-        print(f"    - Initial records:  {initial_count}")
-        if dropped_na > 0:
-            print(f"    - Dropped (NaN):    {dropped_na} ({100*dropped_na/initial_count:.1f}%)")
-        print(f"    - Final records:    {final_count}")
-        print(f"    - Date range:       {df['date'].min().date()} to {df['date'].max().date()}")
-        print(f"    - File:             {out_path.name}\n")
-        
-        logger.info(f"  Wrote {final_count} records to {out_path} (dropped {dropped_na} NaN values)")
+        if verbose:
+            logger.info("  %s", gid)
+            logger.info("    Initial records:  %s", initial_count)
+            if dropped_na > 0:
+                logger.info(
+                    "    Dropped (NaN):    %s (%.1f%%)",
+                    dropped_na,
+                    100 * dropped_na / initial_count,
+                )
+            logger.info("    Final records:    %s", final_count)
+            logger.info(
+                "    Date range:       %s to %s",
+                df["date"].min().date(),
+                df["date"].max().date(),
+            )
+            logger.info("    File:             %s", out_path.name)
+
+        logger.info("  Wrote %s records to %s (dropped %s NaN values)", final_count, out_path, dropped_na)
         
         s = pd.Series(df["discharge_m3s"].values, index=df["date"])
         s.name = "discharge_m3s"
@@ -736,13 +754,17 @@ def load_or_build_gauge_timeseries(
     import shutil
     shutil.rmtree(temp_dir, ignore_errors=True)
     
-    print(f"{'='*80}")
-    print(f"✅ EXTRACTION COMPLETE")
-    print(f"{'='*80}")
-    print(f"Total gauges processed:   {len(final_records_summary)}")
-    print(f"Total records written:    {sum(r['final'] for r in final_records_summary.values())}")
-    print(f"Total records dropped:    {sum(r['dropped_na'] for r in final_records_summary.values())}")
-    print(f"{'='*80}\n")
+    if verbose:
+        logger.info("EXTRACTION COMPLETE")
+        logger.info("Total gauges processed:   %s", len(final_records_summary))
+        logger.info(
+            "Total records written:    %s",
+            sum(r["final"] for r in final_records_summary.values()),
+        )
+        logger.info(
+            "Total records dropped:    %s",
+            sum(r["dropped_na"] for r in final_records_summary.values()),
+        )
 
     return cached
 

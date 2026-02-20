@@ -28,6 +28,7 @@ def setup_logging(
     log_level: str = "INFO",
     log_file: Optional[Path] = None,
     json_format: bool = False,
+    adapter_log_level: Optional[str] = None,
 ) -> None:
     """Configure logging for the application.
     
@@ -41,6 +42,8 @@ def setup_logging(
     json_format : bool, optional
         If True, output structured JSON logs. Requires python-json-logger.
         Defaults to False.
+    adapter_log_level : Optional[str], optional
+        If provided, sets log level for philflood.adapters.* loggers.
     """
     root_logger = logging.getLogger("philflood")
     root_logger.setLevel(getattr(logging, log_level.upper()))
@@ -91,6 +94,11 @@ def setup_logging(
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
     logging.getLogger("rasterio").setLevel(logging.WARNING)
 
+    if adapter_log_level:
+        logging.getLogger("philflood.adapters").setLevel(
+            getattr(logging, adapter_log_level.upper())
+        )
+
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance for a module.
@@ -138,6 +146,119 @@ class LoggerAdapter(logging.LoggerAdapter):
         extra.update(self.extra)
         kwargs["extra"] = extra
         return msg, kwargs
+
+
+class ProgressLogger:
+    """Structured progress reporting for operations practitioners.
+    
+    Non-technical progress logging designed for calibration workflows.
+    Uses visual separators and status indicators instead of detailed
+    timestamps/line numbers. Ideal for Jupyter notebooks and batch scripts.
+    
+    Examples
+    --------
+    >>> log = ProgressLogger("EVT/POT Calibration")
+    >>> log.section("Load Input Data")
+    >>> log.step("Reading basin configuration...")
+    >>> log.success("Loaded 5 gauges")
+    >>> log.error("Missing GRIB file: discharge_2020.grib")
+    """
+    
+    def __init__(self, name: str):
+        """Initialize progress logger.
+        
+        Parameters
+        ----------
+        name : str
+            Name of the workflow (e.g., "EVT/POT Calibration").
+        """
+        self.name = name
+    
+    def section(self, title: str) -> None:
+        """Print a major section header.
+        
+        Parameters
+        ----------
+        title : str
+            Section title.
+        """
+        print(f"\n{'='*70}")
+        print(f"  {title}")
+        print(f"{'='*70}")
+    
+    def step(self, message: str, status: str = "•") -> None:
+        """Print a single step indicator.
+        
+        Parameters
+        ----------
+        message : str
+            Step description.
+        status : str, optional
+            Status symbol (default: •).
+        """
+        print(f"{status} {message}")
+    
+    def success(self, message: str) -> None:
+        """Print a success message.
+        
+        Parameters
+        ----------
+        message : str
+            Success description.
+        """
+        print(f"✓ {message}")
+    
+    def warn(self, message: str) -> None:
+        """Print a warning message.
+        
+        Parameters
+        ----------
+        message : str
+            Warning description.
+        """
+        print(f"⚠️  {message}")
+    
+    def error(self, message: str) -> None:
+        """Print an error message.
+        
+        Parameters
+        ----------
+        message : str
+            Error description.
+        """
+        print(f"✗ {message}")
+    
+    def table(self, title: str, data_dict: dict) -> None:
+        """Print a key-value table.
+        
+        Parameters
+        ----------
+        title : str
+            Table title.
+        data_dict : dict
+            Dictionary of key-value pairs to display.
+        """
+        print(f"\n{title}:")
+        for key, value in data_dict.items():
+            print(f"  {key:.<40} {value}")
+    
+    def progress(self, current: int, total: int, prefix: str = "", suffix: str = "") -> None:
+        """Print progress every 10% (no spam).
+        
+        Parameters
+        ----------
+        current : int
+            Current iteration count.
+        total : int
+            Total iterations.
+        prefix : str, optional
+            Prefix text to display.
+        suffix : str, optional
+            Suffix text to display.
+        """
+        if current % max(1, total // 10) == 0 or current == total:
+            pct = int(100 * current / total)
+            print(f"  [{pct:3d}%] {current}/{total} {prefix} {suffix}")
 
 
 # Default setup on import (can be reconfigured later)

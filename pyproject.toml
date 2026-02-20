@@ -7,7 +7,7 @@ name = "philflood"
 version = "0.3.0"
 description = "Impact-Based Forecasting system for flood early action in the Philippines"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"  # Code tested to work with Python 3.9.13 and later
 authors = [
   {name = "David Urueña", email = "duruenaramirez@redcross.nl"}
 ]

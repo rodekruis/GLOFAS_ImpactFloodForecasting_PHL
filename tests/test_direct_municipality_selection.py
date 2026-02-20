@@ -11,25 +11,22 @@ from shapely.geometry import Polygon
 
 
 def test_deprecated_functions_raise_errors():
-    """Verify that deprecated functions raise NotImplementedError."""
-    from philflood.geo.aoi import build_municipality_aoi
-    from philflood.geo.worldpop import population_weighted_centroid
-    from shapely.geometry import Point
+    """Verify that deprecated modules are no longer importable from main package.
     
-    # Test that build_municipality_aoi raises NotImplementedError
-    with pytest.raises(NotImplementedError, match="deprecated"):
-        build_municipality_aoi(
-            muni_polygon=Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
-            pop_centroid=Point(0.5, 0.5),
-            buffer_km=5.0
-        )
+    Note: These modules have been moved to _archive/ as of Feb 2026.
+    This test verifies they cannot be imported from the main package,
+    ensuring the deprecation is enforced.
+    """
+    import pytest
     
-    # Test that population_weighted_centroid raises NotImplementedError
-    with pytest.raises(NotImplementedError, match="deprecated"):
-        population_weighted_centroid(
-            polygon=Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
-            worldpop_raster_path="/fake/path.tif"
-        )
+    # Test that aoi module is no longer importable
+    with pytest.raises(ModuleNotFoundError):
+        from philflood.geo.aoi import build_municipality_aoi
+    
+    # Test that worldpop module is no longer importable
+    with pytest.raises(ModuleNotFoundError):
+        from philflood.geo.worldpop import population_weighted_centroid
+
 
 
 def test_direct_intersection_selection():

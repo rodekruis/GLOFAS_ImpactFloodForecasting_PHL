@@ -93,7 +93,7 @@ print('REPO_ROOT:', REPO_ROOT)
 print('SRC_PATH :', SRC_PATH)
 
 # Now imports from src/
-from philflood.config.basin import load_basin_config
+from philflood.domain.config import load_basin_config
 from philflood.geo.hydrobasins import read_vector, select_context_polygon, select_l12_by_geometry, get_id_field
 from philflood.adapters.glofas_grib_v4 import (
     discover_grib_year_files,

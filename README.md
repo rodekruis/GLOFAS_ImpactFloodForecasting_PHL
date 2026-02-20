@@ -1,5 +1,7 @@
 # GLOFAS Philippines Flood Forecasting
 
+> **🎯 v0.3.0 Now Humanized (Feb 2026)**: Calibration Notebook 1 has been redesigned for non-technical operations personnel. Quick Start guide, simplified inputs (4 fields), input validation, and progress checkpoints all built in. See [Phase B Improvements](docs/user-guides/notebook01-calibration-guide.md#whats-new-in-v030) and [Migration Guide](MIGRATION.md) for details.
+
 > **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are currently using placeholder implementations and will be completed in v1.0 (Q2 2026). See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
 
 An open-source early action flood trigger system for the Philippines using Global Flood Awareness System (GloFAS) forecasts and Extreme Value Theory (EVT) statistical modeling.
@@ -70,26 +72,32 @@ GLOFAS_ImpactFloodForecasting_PHL/
 
 For detailed explanation of the module architecture, see [docs/technical/ARCHITECTURE.md](docs/technical/ARCHITECTURE.md).
 
-## Quick Links
+## Quick Navigation
 
-- **📖 Full Documentation Hub**: [Docs Index](docs/README.md) – Navigation by role, reading order, all guides
-- **🚀 Getting Started**: [Quickstart Guide](docs/getting-started/quickstart.md) – Installation and first run (15 minutes)
-- **⚙️ Production Deployment**: [Deployment Guide](docs/operations/deployment.md) – Scheduled monitoring, Docker, cloud options
-- **📊 Methods & Theory**: [Methods Overview](docs/technical/methods-overview.md) – EVT approach, data flow, references
-- **❓ FAQ**: [Frequently Asked Questions](docs/getting-started/FAQ.md) – Common issues and solutions
-- **🔧 Troubleshooting**: [Full Troubleshooting Guide](docs/user-guides/troubleshooting.md) – Organized by problem type
+**For Humanitarian Officers & Operations Teams:**
+- 🚀 [Calibrating a new basin?](docs/user-guides/notebook01-calibration-guide.md) – Start here for step-by-step instructions
+- 🔍 [Operations dashboard guide](docs/user-guides/notebook02-hazard-guide.md) – How to generate hazard maps
+- ✅ [Validation & QC guide](docs/user-guides/notebook03-validation-guide.md) – Quality control checklist
+- ❓ [FAQ & Troubleshooting](docs/getting-started/FAQ.md) – Common issues and solutions
+
+**For Technical Teams & Developers:**
+- 📖 [Full Documentation Hub](docs/README.md) – Navigation by role, reading order, all guides
+- 🚀 [Setup & Installation](docs/getting-started/quickstart.md) – Dev environment setup (15 minutes)
+- 🔨 [Contributing Guide](docs/contributing/CONTRIBUTING.md) – Development workflow and code standards
+- 🔧 [Architecture & Design](docs/technical/ARCHITECTURE.md) – System design and module structure
+- 📊 [Methods & Theory](docs/technical/methods-overview.md) – EVT approach, data flow, references
+- ⚙️ [Deployment Guide](docs/operations/deployment.md) – Production setup and scheduling
 
 ## How to Contribute
 
-See [Contributing Guide](docs/contributing/CONTRIBUTING.md) for full development workflow, code standards, and PR process.
+Contributions are welcome! See [Contributing Guide](docs/contributing/CONTRIBUTING.md) for development workflow, code standards, and testing requirements.
 
-**Areas to contribute:**
-1. **Calibration improvements**: Add new basins or refine EVT threshold selection in `calibration/notebooks/`
-2. **New data sources**: Extend adapters in `src/philflood/adapters/` for alternative forecast systems
-3. **Operational enhancements**: Improve monitoring logic in `src/philflood/ops/`
-4. **Documentation**: Clarify methodology or add deployment examples in `docs/`
-
-All contributions are reviewed according to guidelines in [CONTRIBUTING.md](docs/contributing/CONTRIBUTING.md) and [TESTING.md](docs/contributing/TESTING.md).
+**Ways to contribute:**
+1. **Add new basins**: Follow calibration notebook workflow to add basin configurations
+2. **Improve statistical methods**: Refine EVT threshold selection and diagnostic tools
+3. **Extend data sources**: Add new adapters for alternative forecast systems
+4. **Documentation**: Clarify methodology, add examples, or improve guides
+5. **Bug reports & ideas**: Open GitHub issues for bugs or feature requests
 
 ## Installation
 
