@@ -9,4 +9,7 @@ underlying library without changing the rest of the codebase.
 
 __all__ = [
     "threshold_selection",
+    "compute_mrl",
 ]
+
+from philflood.models.ev.threshold_selection import compute_mrl  # noqa: E402

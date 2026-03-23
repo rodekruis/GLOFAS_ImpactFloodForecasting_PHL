@@ -1,0 +1,145 @@
+import geopandas as gpd
+from shapely.geometry import box
+
+log.section("SECTION 3: Load Geographic Boundaries")
+
+# === Helper Function: Spatial-Filtered Vector Loading ===
+def read_vector_with_spatial_filter(path, filter_geometry, enforce_epsg4326=True):
+    """Load vector with spatial filter to select complete polygons.
+    
+    Uses spatial relationship (intersects) to select complete polygons 
+    that overlap or touch the filter geometry. This avoids topology 
+    errors from bbox clipping by keeping polygon boundaries intact.
+    
+    Args:
+        path: Path to shapefile/geojson
+        filter_geometry: Shapely geometry to filter by (e.g., buffered polygon)
+        enforce_epsg4326: Convert to EPSG:4326 if needed
+    
+    Returns:
+        GeoDataFrame with complete polygons intersecting filter_geometry
+    """
+    try:
+        # First try native fiona spatial filter (fastest)
+        import fiona
+        bounds = filter_geometry.bounds  # (minx, miny, maxx, maxy)
+        with fiona.open(path, bbox=bounds) as src:
+            gdf = gpd.GeoDataFrame.from_features(src, crs=src.crs)
+        
+        if gdf.empty:
+            log.warn(f"No features in bbox, falling back to full load + spatial filter")
+            gdf = gpd.read_file(path)
+        else:
+            log.step(f"  Loaded {len(gdf)} features via fiona bbox filter")
+    except Exception as e:
+        log.warn(f"  Fiona filter failed: {e}, using standard load")
+        gdf = gpd.read_file(path)
+    
+    # Ensure CRS
+    if enforce_epsg4326 and gdf.crs != "EPSG:4326":
+        gdf = gdf.to_crs("EPSG:4326")
+    
+    # Apply spatial filter: keep complete polygons that intersect the geometry
+    # Using .intersects() ensures we get the full polygon, not clipped versions
+    gdf_filtered = gdf[gdf.geometry.intersects(filter_geometry)].copy()
+    
+    return gdf_filtered
+
+# === Step 1: Always load small ADM3 first ===
+log.step("Loading ADM3 municipalities...")
+adm3_gdf = read_vector(adm3_geojson)
+log.step(f"  Loaded {len(adm3_gdf)} municipalities")
+
+adm3_id_field = "adm3_id" if "adm3_id" in adm3_gdf.columns else None
+if adm3_id_field is None:
+    log.error("ADM3 must have 'adm3_id' column")
+    raise KeyError("Missing adm3_id")
+
+# === Step 2: Compute spatial filter geometry based on mode ===
+basin_cfg = None
+target_level = None
+
+if USE_MUNI_AOI:
+    log.step(f"Municipality mode: Computing bbox from {len(adm3_ids)} municipalities...")
+    
+    # Get bbox from selected municipalities
+    muni_subset = adm3_gdf[adm3_gdf[adm3_id_field].isin(adm3_ids)]
+    bounds = muni_subset.total_bounds  # [minx, miny, maxx, maxy]
+    
+    # Create buffered geometry to capture upstream basins
+    buffer_deg = 2.0  # ~220 km buffer at equator
+    filter_geom = box(
+        bounds[0] - buffer_deg,  # minx
+        bounds[1] - buffer_deg,  # miny
+        bounds[2] + buffer_deg,  # maxx
+        bounds[3] + buffer_deg   # maxy
+    )
+    
+    log.step(f"  Filter bbox: lon [{filter_geom.bounds[0]:.2f}, {filter_geom.bounds[2]:.2f}], "
+             f"lat [{filter_geom.bounds[1]:.2f}, {filter_geom.bounds[3]:.2f}]")
+else:
+    log.step("Context basin mode: Computing bbox from context basin...")
+    basin_cfg = load_basin_config(basin_cfg_path)
+    
+    # Load ONLY the context basin level (small - e.g., L7)
+    target_level = int(basin_cfg.hydrobasins_level)
+    
+    if target_level == 12:
+        context_gdf_temp = read_vector(hybas_l12_shp)
+        log.step(f"  Loaded L12 for context basin selection")
+    else:
+        level_str = f"{target_level:02d}"
+        hybas_parent = hybas_l12_shp.parent
+        hybas_context = hybas_parent / f"hybas_au_lev{level_str}_v1c.shp"
+        
+        if not hybas_context.exists():
+            log.error(f"HydroBASINS level {target_level} not found: {hybas_context}")
+            raise FileNotFoundError(f"HydroBASINS level {target_level} shapefile not found at: {hybas_context}")
+        
+        context_gdf_temp = read_vector(hybas_context)
+        log.step(f"  Loaded L{target_level} for context basin selection: {len(context_gdf_temp)} polygons")
+    
+    # Select the specific basin
+    context_sel = select_context_polygon(context_gdf_temp, basin_cfg.hydrobasins_id)
+    context_geom = context_sel.geometry.values[0]
+    bounds = context_sel.total_bounds
+    
+    # Create buffered geometry (smaller buffer for basin mode)
+    buffer_deg = 1.0  # ~110 km buffer at equator
+    filter_geom = box(
+        bounds[0] - buffer_deg,
+        bounds[1] - buffer_deg,
+        bounds[2] + buffer_deg,
+        bounds[3] + buffer_deg
+    )
+    
+    log.step(f"  Filter bbox: lon [{filter_geom.bounds[0]:.2f}, {filter_geom.bounds[2]:.2f}], "
+             f"lat [{filter_geom.bounds[1]:.2f}, {filter_geom.bounds[3]:.2f}]")
+
+# === Step 3: Load L12 basins with spatial filter ===
+# This uses .intersects() to select COMPLETE polygons, avoiding topology errors
+log.step("Loading L12 basins with spatial filter (selecting complete polygons)...")
+l12_gdf = read_vector_with_spatial_filter(hybas_l12_shp, filter_geom)
+log.step(f"  ✓ Filtered to {len(l12_gdf)} L12 basins (from full Australasia dataset)")
+
+# === Step 4: Setup context for later use ===
+context_gdf = None
+context_geom = None
+
+if not USE_MUNI_AOI:
+    # Already loaded context basin above (basin_cfg and target_level available from Step 2)
+    context_gdf = context_gdf_temp
+    basin_name = basin_cfg.basin_id if basin_cfg else "BASIN_MODE"
+    log.success(f"Context basin L{target_level}: {basin_name}")
+
+# Get ID field names
+l12_id_field = get_id_field(l12_gdf)
+
+log.table("Vector Data Loaded", {
+    "ADM3 (municipalities)": len(adm3_gdf),
+    "L12 (filtered basins)": len(l12_gdf),
+    "Filter strategy": "Municipality AOI" if USE_MUNI_AOI else f"Context basin L{target_level}",
+    "Spatial selection": "Intersects (complete polygons preserved)",
+})
+
+log.success("Section 3 complete: Spatial-filtered vectors loaded")

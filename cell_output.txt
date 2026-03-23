@@ -1,0 +1,50 @@
+Cells written
+===================================================================
+CELL 9
+================================================================================
+log.section("SECTION 4: Select L12 Impact Units")
+
+selected_l12 = None
+muni_aoi_records = []
+
+if USE_MUNI_AOI:
+    if not adm3_ids:
+        log.error("USE_MUNI_AOI=True requires adm3_ids to be provided")
+        raise ValueError("USE_MUNI_AOI=True requires adm3_ids to be provided")
+    
+    log.step(f"Processing {len(adm3_ids)} municipality/municipalities...")
+    log.step("Selecting L12 basins that intersect each municipality polygon...")
+
+    for mid in adm3_ids:
+        muni = adm3_gdf[adm3_gdf[adm3_id_field] == mid]
+        if len(muni) != 1:
+            raise ValueError(f"Expected exactly 1 municipality for adm3_id={mid}, found {len(muni)}")
+        muni_geom = muni.geometry.values[0]
+
+        # Direct L12 selection: all L12s that spatially intersect the municipality polygon
+        sel = select_l12_by_geometry(l12_gdf, muni_geom, mode="intersects")
+
+        muni_aoi_records.append({
+            "adm3_id": mid,
+            "centroid_lon": None,  # No longer computed; using direct intersection
+            "centroid_lat": None,  # No longer computed; using direct intersection
+            "total_population": None,  # Population weighting removed
+            "valid_pixel_count": None,  # Population weighting removed
+            "n_l12_selected": int(len(sel)),
+            "l12_ids": sel[l12_id_field].astype(int).tolist(),
+        })
+        log.step(f"  {mid}: {len(sel)} L12 basins selected (direct municipality intersection)")
+
+    # Union selection across municipalities
+    all_ids = sorted({i for r in muni_aoi_records for i in r["l12_ids"]})
+    selected_l12 = l12_gdf[l12_gdf[l12_id_field].astype(int).isin(all_ids)].copy()
+
+else:
+    # Context basin mode
+    log.step("Context basin mode: Selecting L12 by geometry...")
+    context_sel = select_context_polygon(context_gdf, basin_cfg.hydrobasins_id)
+    context_geom = context_sel.geometry.values[0]
+    selected_l12 = select_l12_by_geometry(l12_gdf, context_geom, mode=context_select_mode)
+    log.step(f"Selected {len(selected_l12)} L12 basins")
+
+log.success(f"Section 4 complete: {len(selected_l12)} L12 basins selected")

@@ -1,0 +1,30 @@
+NB04 CELL 3 - apply_flopros_if_needed function
+================================================================================
+53: def apply_flopros_if_needed(rp_regrid: xr.DataArray, apply: bool, flopros_root: Path) -> xr.DataArray:
+54:     """NB3-style FLOPROS: load shapefile as GeoDataFrame and apply MerL_Riv."""
+55:     if not apply:
+56:         return rp_regrid
+57:     try:
+58:         flopros_root = Path(flopros_root)
+59:         flopros_shp = flopros_root / "FLOPROS_shp_V1" / "FLOPROS_shp_V1.shp"
+60:         if not flopros_shp.exists():
+61:             _log("Downloading FLOPROS database ...")
+62:             try:
+63:                 download_flopros_database(str(flopros_root))
+64:             except TypeError:
+65:                 # some versions accept no args
+66:                 download_flopros_database()
+67: 
+68:         flopros_gdf = gpd.read_file(flopros_shp).to_crs("EPSG:4326")
+69: 
+70:         protected = []
+71:         for i, ev in enumerate(rp_regrid.event.values):
+72:             rp_event = _sanitize_rp(rp_regrid.isel(event=i).copy(deep=True))
+73:             rp_prot = petals_apply_flopros(flopros_gdf, rp_event, layer="MerL_Riv")
+74:             protected.append(rp_prot.expand_dims({"event": [ev]}))
+75: 
+76:         return xr.concat(protected, dim="event")
+77:     except Exception as e:
+78:         _log(f"⚠️ FLOPROS failed; continuing without protection: {e}")
+79:         return rp_regrid
+80: 

@@ -1,0 +1,38 @@
+20260225 185354.095 ERROR            PET0 ESMCI_Array.C:2609 ESMCI::sparseMatMulStoreLinSeqVe Internal error: Bad condition  - Caught exception
+20260225 185354.099 ERROR            PET0 ESMCI_Array.C:9203 ESMCI::Array::tSparseMatMulStore Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMCI_Array.C:8668 ESMCI::Array::sparseMatMulStore( Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMCI_Array_F.C:1072 c_esmc_arraysmmstoreind4() Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMCI_Mesh_Regrid_Glue.C:510 ESMCI_regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMCI_Mesh_Regrid_Glue.C:582 ESMCI_regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMCI_MeshCap.C:1676 MeshCap::regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMF_Regrid.F90:368 ESMF_RegridStore Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMF_FieldRegrid.F90:1171 ESMF_FieldRegridStoreNX Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMF_Field_C.F90:1137 f_esmf_regridstore Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMCI_Field.C:1468 ESMCI::Field::regridstore() Internal error: Bad condition  - Internal subroutine call returned Error
+20260225 185354.118 ERROR            PET0 ESMC_Field.C:449 ESMC_FieldRegridStore() Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.151 ERROR            PET0 ESMCI_Array.C:11812 ESMCI::sparseMatMulStoreEncodeXX Internal error: Bad condition  - Caught exception
+20260303 013707.152 ERROR            PET0 ESMCI_Array.C:10930 ESMCI::sparseMatMulStoreEncodeXX Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.152 ERROR            PET0 ESMCI_Array.C:9364 ESMCI::Array::tSparseMatMulStore Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.164 ERROR            PET0 ESMCI_Array.C:8668 ESMCI::Array::sparseMatMulStore( Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.164 ERROR            PET0 ESMCI_Array_F.C:1072 c_esmc_arraysmmstoreind4() Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.164 ERROR            PET0 ESMCI_Mesh_Regrid_Glue.C:510 ESMCI_regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMCI_Mesh_Regrid_Glue.C:582 ESMCI_regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMCI_MeshCap.C:1676 MeshCap::regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMF_Regrid.F90:368 ESMF_RegridStore Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMF_FieldRegrid.F90:1171 ESMF_FieldRegridStoreNX Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMF_Field_C.F90:1137 f_esmf_regridstore Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMCI_Field.C:1468 ESMCI::Field::regridstore() Internal error: Bad condition  - Internal subroutine call returned Error
+20260303 013707.168 ERROR            PET0 ESMC_Field.C:449 ESMC_FieldRegridStore() Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.722 ERROR            PET0 ESMCI_Array.C:11812 ESMCI::sparseMatMulStoreEncodeXX Internal error: Bad condition  - Caught exception
+20260311 064102.724 ERROR            PET0 ESMCI_Array.C:10930 ESMCI::sparseMatMulStoreEncodeXX Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.724 ERROR            PET0 ESMCI_Array.C:9364 ESMCI::Array::tSparseMatMulStore Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.738 ERROR            PET0 ESMCI_Array.C:8668 ESMCI::Array::sparseMatMulStore( Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.738 ERROR            PET0 ESMCI_Array_F.C:1072 c_esmc_arraysmmstoreind4() Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.738 ERROR            PET0 ESMCI_Mesh_Regrid_Glue.C:510 ESMCI_regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.740 ERROR            PET0 ESMCI_Mesh_Regrid_Glue.C:582 ESMCI_regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.740 ERROR            PET0 ESMCI_MeshCap.C:1676 MeshCap::regrid_create() Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.740 ERROR            PET0 ESMF_Regrid.F90:368 ESMF_RegridStore Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.740 ERROR            PET0 ESMF_FieldRegrid.F90:1171 ESMF_FieldRegridStoreNX Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.740 ERROR            PET0 ESMF_Field_C.F90:1137 f_esmf_regridstore Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.740 ERROR            PET0 ESMCI_Field.C:1468 ESMCI::Field::regridstore() Internal error: Bad condition  - Internal subroutine call returned Error
+20260311 064102.742 ERROR            PET0 ESMC_Field.C:449 ESMC_FieldRegridStore() Internal error: Bad condition  - Internal subroutine call returned Error

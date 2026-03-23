@@ -1,0 +1,80 @@
+================================================================================
+COMPLETE AOI PIPELINE STEP BY STEP
+================================================================================
+
+CELL 4: User Configuration Parameters
+--------------------------------------------------------------------------------
+- ANALYZE_BY_MUNICIPALITY: Boolean flag (True=municipality mode, False=basin mode)
+- USE_MUNI_AOI: Alias for ANALYZE_BY_MUNICIPALITY
+- basin_config_file: Path to basin YAML config (only if ANALYZE_BY_MUNICIPALITY=False)
+- municipality_ids: List of ADM3 IDs (only if ANALYZE_BY_MUNICIPALITY=True)
+- context_select_mode: 'within' (used only if not using municipality AOI)
+
+CELL 7: Geographic Boundaries Loading (SECTION 3)
+--------------------------------------------------------------------------------
+STEP 1: Load ADM3 municipalities
+  - Loads from phl_adm3.geojson
+
+STEP 2: Compute spatial filter geometry
+  IF ANALYZE_BY_MUNICIPALITY=True:
+    - Get bounding box from selected municipalities
+    - Add 2.0 degree buffer (upstream basin capture)
+  ELSE (basin mode):
+    - Load basin config file (get hydrobasins_level, hydrobasins_id)
+    - target_level = basin_cfg.hydrobasins_level (e.g., 7 for Cagayan)
+    - Load L{target_level} HydroBASINS shapefile
+    - Select specific context basin by hydrobasins_id
+    - Get bounding box from that L{target_level} polygon
+    - Add 1.0 degree buffer (~110 km)
+
+STEP 3: Load L12 with spatial filter
+  - Read full L12 HydroBASINS dataset
+  - Filter using .intersects() with buffered filter geometry
+  - Keep COMPLETE L12 polygons that intersect the filter box
+
+STEP 4: Store context for later
+  - If not municipality mode: save context_gdf = context_gdf_temp
+  - context_gdf stores the L{target_level} basin polygon
+
+CELL 9: Select L12 Impact Units (SECTION 4)
+--------------------------------------------------------------------------------
+IF ANALYZE_BY_MUNICIPALITY=True:
+  - For each municipality ID:
+    - Get municipality geometry from ADM3
+    - SELECT: all L12s that .intersects() the municipality polygon
+    - Add to list: {adm3_id, l12_ids}
+  - Union all L12 IDs across municipalities
+  - selected_l12 = union of all selected L12s
+
+ELSE (basin mode):
+  - context_geom = context basin L{target_level} polygon
+  - SELECT: all L12s that satisfy mode relationship with context_geom
+  - context_select_mode='within' means: L12s where .within(context_geom)
+  - selected_l12 = result
+
+
+KEY FINDING: Is there an L06/L07 filter?
+--------------------------------------------------------------------------------
+NO explicit L06 or L07 selection step.
+
+The ONLY filter is:
+1. In BASIN MODE: context_select_mode='within' filters L12s to be WITHIN the
+   L{target_level} context basin (e.g., L7 for Cagayan_01)
+   This is applied via select_l12_by_geometry(l12_gdf, context_geom, mode='within')
+   which uses: l12_gdf[l12_gdf.within(context_geom)].copy()
+
+2. In MUNICIPALITY MODE: L12s are selected by direct .intersects() with
+   each municipality polygon - NO basin boundary filtering
+
+IMPLICATION FOR YOUR ISSUE:
+When a municipality extends beyond the L7 basin boundary in basin mode,
+the L12s outside the L7 boundary are NEVER loaded because:
+  - Step 3 of CELL 7 loads L12 with .intersects(filter_geom)
+  - filter_geom is built from the L7 polygon bounds + buffer
+  - L12s outside this box are not loaded
+
+  - Step 4 of CELL 9 filters with mode='within' context_geom
+  - context_geom is the L7 polygon
+  - Only L12s spatially within L7 are selected
+
+

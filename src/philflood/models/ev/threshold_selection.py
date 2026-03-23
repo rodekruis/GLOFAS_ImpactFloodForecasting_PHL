@@ -20,6 +20,67 @@ from scipy import stats
 from pyextremes import EVA
 
 
+def compute_mrl(
+    series: pd.Series,
+    candidate_thresholds: List[float],
+) -> pd.DataFrame:
+    """Compute Mean Residual Life (mean excess) for a set of candidate thresholds.
+
+    The MRL function e(u) = E[X - u | X > u] should be approximately linear and
+    increasing in u when the tail follows a GPD. Linearity over a range of u
+    is the classical graphical diagnostic for threshold validity.
+
+    Parameters
+    ----------
+    series : pd.Series
+        Discharge time series (no NaNs required by caller).
+    candidate_thresholds : list of float
+        Threshold values to evaluate. Typically the same grid used in threshold selection.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: threshold, n_exceed, mrl, mrl_se, mrl_linear_ok.
+        - mrl: mean excess E[X - u | X > u]
+        - mrl_se: standard error of the mean excess = std / sqrt(n_exceed)
+        - mrl_linear_ok: True if this threshold lies in a linearly-increasing MRL region.
+          Computed by fitting a line to all (threshold, mrl) pairs and checking that
+          the residual for this point is within 1.5 * median absolute residual of the fit.
+    """
+    vals = series.dropna().values
+    rows = []
+    for u in sorted(candidate_thresholds):
+        exceedances = vals[vals > u] - u
+        n = len(exceedances)
+        if n >= 2:
+            mrl = float(exceedances.mean())
+            mrl_se = float(exceedances.std(ddof=1) / np.sqrt(n))
+        else:
+            mrl = np.nan
+            mrl_se = np.nan
+        rows.append({"threshold": float(u), "n_exceed": int(n), "mrl": mrl, "mrl_se": mrl_se})
+
+    df = pd.DataFrame(rows)
+
+    # Linearity flag: fit linear model to valid (threshold, mrl) pairs; flag outliers
+    valid = df.dropna(subset=["mrl"])
+    df["mrl_linear_ok"] = True  # default True when insufficient data to test
+    if len(valid) >= 3:
+        x = valid["threshold"].values
+        y = valid["mrl"].values
+        # Least-squares linear fit
+        coeffs = np.polyfit(x, y, 1)
+        y_pred = np.polyval(coeffs, x)
+        residuals = np.abs(y - y_pred)
+        mad = float(np.median(residuals))
+        threshold_val = 1.5 * mad if mad > 0 else np.inf
+        linear_ok = residuals <= threshold_val
+        for i, idx in enumerate(valid.index):
+            df.at[idx, "mrl_linear_ok"] = bool(linear_ok[i])
+
+    return df
+
+
 def auto_select_threshold_pot(
     time_series: pd.Series,
     candidate_quantiles: List[float] = None,
@@ -268,16 +329,12 @@ def _evaluate_threshold(
         excesses = (events - threshold).values
         try:
             # Use scipy stats for GPD fit (shape, loc, scale)
-            # In scipy, shape = -xi (negative of our xi)
+            # scipy genpareto uses the same sign convention as EVT:
+            #   CDF = 1 - (1 + c*x/scale)^(-1/c)  matches  1 - (1 + ξ*y/σ)^(-1/ξ)
+            # so scipy shape c = EVT ξ directly (no negation needed).
             params = stats.genpareto.fit(excesses, floc=0)
-            gpd_shape_scipy = params[0]
+            xi = params[0]       # EVT shape ξ: positive → heavy tail (Fréchet)
             gpd_scale = params[2]
-            
-            # Convert scipy shape to standard EVT ξ
-            # In scipy: pdf ∝ (1 + shape*x/scale)^(-1/shape)
-            # In EVT: pdf ∝ (1 - xi*x/sigma)^(-1/xi) for xi > 0
-            # These differ in sign convention
-            xi = -gpd_shape_scipy if gpd_shape_scipy != 0 else 0.0
         except Exception:
             xi = np.nan
             gpd_scale = np.nan
