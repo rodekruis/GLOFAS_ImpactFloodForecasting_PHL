@@ -61,7 +61,7 @@ High-level workflows combining multiple modules:
 **Key files:**
 - `monitoring.py` - Operational monitoring stub: defines `TriggerDecision` dataclass and `run_monitoring()` (currently raises `NotImplementedError`; full implementation target: v1.0)
 
-> **Note**: There is no `validation.py` in `pipelines/`. Basin config validation is done via `BasinConfig.validate()` in `domain/basin.py`.
+> **Note**: `pipelines/validation.py` is kept as a compatibility wrapper for CLI/smoke-test imports. Core schema checks still live in `BasinConfig.validate()` in `domain/basin.py`.
 
 #### **`ops/`** - Operational Utilities
 Production-specific functionality:
