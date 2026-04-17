@@ -2,7 +2,7 @@
 
 > **🎯 v0.3.0 Now Humanized (Feb 2026)**: Calibration Notebook 1 has been redesigned for non-technical operations personnel. Quick Start guide, simplified inputs (4 fields), input validation, and progress checkpoints all built in. See [Phase B Improvements](docs/user-guides/notebook01-calibration-guide.md#whats-new-in-v030) for details.
 
-> **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are currently using placeholder implementations and will be completed in v1.0 (Q2 2026). See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
+> **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are implemented). See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
 
 An open-source early action flood trigger system for the Philippines using Global Flood Awareness System (GloFAS) forecasts and Extreme Value Theory (EVT) statistical modeling.
 
