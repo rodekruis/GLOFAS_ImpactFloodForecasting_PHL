@@ -14,14 +14,51 @@ Notebook 2 transforms calibrated return periods (from Notebook 1) into flood dep
 
 ## Quick Start (5 min)
 
-```python
-# Leave as default to auto-detect from Notebook 1
-AUTO_DETECT = True
-basin_id_input = None
-run_tag_input = None
+### Option 1: Automatic Mode Detection (Recommended)
 
-# Run all cells
-# Auto-configures for your basin/municipalities!
+1. Run Notebook 1 first (basin or municipality mode)
+2. Open Notebook 2, leave configuration as default:
+   ```python
+   AUTO_DETECT = True
+   basin_id_input = None
+   run_tag_input = None
+   ```
+3. Run all cells — everything auto-configures
+
+### Option 2: Manual Configuration
+
+```python
+AUTO_DETECT = False
+basin_id_input = "Cagayan_01"             # Your basin ID
+run_tag_input = "2026-01-19_calib-test"   # Your run tag
+```
+
+### What auto-detection changed vs. the previous version
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| **Configuration** | Hardcoded BASIN_ID | Auto-detects from Notebook 1 |
+| **Output paths** | Always `climada_hazard/{BASIN_ID}/` | `climada_hazard/{BASIN_ID or MUNI_SELECTION}/` |
+| **Tile selection** | Fixed basin extent | Uses flood_zone_boundary |
+| **Mode support** | Basin only | Basin + Municipality |
+| **User effort** | Manual path editing | Zero manual path editing |
+
+### Expected console output when running successfully
+
+**Basin mode:**
+```
+✓ Detected BASIN mode with basin_id: Cagayan_01
+✓ Detected mode: BASIN
+  Basin ID/Selection: Cagayan_01
+  Run tag: 2026-01-20_calib-test
+```
+
+**Municipality mode:**
+```
+✓ Detected MUNICIPALITY mode with 3 municipalities
+✓ Detected mode: MUNICIPALITY
+  Basin ID/Selection: MUNI_SELECTION
+  Run tag: 2026-01-20_calib-test
 ```
 
 ---
@@ -227,9 +264,7 @@ print(f"Frequency: {haz.frequency}")
 
 ## References
 
-- [Notebook 2 Quickstart](notebook02-quickstart.md) - 5-minute version
-- [Notebook 2 Refactoring](../technical/notebook02-refactoring.md) - Architecture & design
-- [Section 4 Optimization](../technical/notebook02-section4-optimization.md) - Performance tuning
+- [Section 4 Optimization](../technical/notebook02-section4-optimization.md) - Performance tuning (rasterio fast path, chunk sizing)
 - [Methods Overview - CLIMADA](../technical/methods-overview.md#return-period-to-hazard-integration-climada)
 - [FAQ - CLIMADA](../getting-started/FAQ.md#climada--hazard-integration)
 

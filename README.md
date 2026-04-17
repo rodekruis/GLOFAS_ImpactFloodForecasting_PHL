@@ -1,6 +1,6 @@
 # GLOFAS Philippines Flood Forecasting
 
-> **🎯 v0.3.0 Now Humanized (Feb 2026)**: Calibration Notebook 1 has been redesigned for non-technical operations personnel. Quick Start guide, simplified inputs (4 fields), input validation, and progress checkpoints all built in. See [Phase B Improvements](docs/user-guides/notebook01-calibration-guide.md#whats-new-in-v030) and [Migration Guide](MIGRATION.md) for details.
+> **🎯 v0.3.0 Now Humanized (Feb 2026)**: Calibration Notebook 1 has been redesigned for non-technical operations personnel. Quick Start guide, simplified inputs (4 fields), input validation, and progress checkpoints all built in. See [Phase B Improvements](docs/user-guides/notebook01-calibration-guide.md#whats-new-in-v030) for details.
 
 > **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are currently using placeholder implementations and will be completed in v1.0 (Q2 2026). See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
 
@@ -48,20 +48,18 @@ GLOFAS_ImpactFloodForecasting_PHL/
 │   ├── notebooks/            # Interactive EVT calibration workflow
 │   └── scripts/              # Batch calibration and config generation
 ├── src/philflood/            # Reusable package code
-│   ├── adapters/            # GRIB extraction, CLIMADA interfaces, data loading
+│   ├── adapters/            # GRIB extraction (glofas_grib_v4.py + optimized streaming)
 │   ├── calibration/         # EVT model fitting and statistical calibration
 │   ├── cli.py               # Command-line interface entry point
-│   ├── config/              # YAML configuration schema and loading
-│   ├── domain/              # Core business logic and domain entities
+│   ├── domain/              # Core business logic, dataclasses, YAML config I/O
 │   ├── geo/                 # Spatial operations (HydroBASINS, WorldPop)
 │   ├── models/              # Statistical and impact models
 │   │   ├── ev/             # Extreme value (EVT/POT) models
-│   │   ├── impact/         # Population impact calculations
-│   │   └── risk/           # Risk metrics (AEP/OEP)
-│   ├── ops/                 # Operational monitoring and validation
-│   ├── pipelines/           # Orchestration workflows (monitoring, validation)
+│   │   └── impact/         # Population impact calculations (partial v0.3)
+│   ├── ops/                 # Operational utilities (logging, run_config auto-discovery)
+│   ├── pipelines/           # Orchestration (monitoring.py stub — v1.0 target)
 │   ├── qc/                  # Quality control checks
-│   └── utils/               # Memory management, logging utilities
+│   └── utils/               # Memory management, event detection, path helpers
 ├── ops/                      # Production configuration and monitoring
 │   ├── configs/            # Basin-specific YAML parameters
 │   └── pipeline/           # Scheduled monitoring scripts

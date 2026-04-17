@@ -77,21 +77,28 @@ class VulnerabilityConfig:
 
 @dataclass
 class TriggerConfig:
-    """Definition of an operational trigger for early action.
+    """Placeholder for future operational trigger configuration.
+
+    .. warning::
+        These fields are **not used** in the current trigger logic. The
+        actual operational trigger thresholds are derived from per-unit
+        OEP curves in ``data/processed/Riskprofiles/oep_curves_all_units.json``
+        (produced by NB05). The trigger activation rule is implemented in
+        ``calibration/notebooks/07_Trigger_Validation_Reforecast.ipynb``
+        and uses a hardcoded 50% ensemble probability threshold.
+
+        This class is kept as a v1.0 stub for future structured config.
+        Do not add new code that reads these fields until the operational
+        pipeline is designed and accepted.
 
     Parameters
     ----------
     impact_threshold_people : int
-        The minimum number of people affected required to consider
-        activation.  This value will be compared to modelled impacts.
+        Reserved for future use. Currently unused.
     probability_threshold : float
-        The minimum probability (between 0 and 1) that the impact
-        threshold will be exceeded before a trigger is activated.  For
-        example, ``0.3`` corresponds to a 30% probability.
+        Reserved for future use. Currently unused.
     max_lead_time_days : int
-        The maximum forecast lead time (in days) to consider when
-        evaluating the trigger.  Forecasts beyond this horizon are
-        ignored.
+        Reserved for future use. Currently unused.
     """
 
     impact_threshold_people: int = 100_000

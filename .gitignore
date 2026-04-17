@@ -169,3 +169,34 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Development artifacts — temporary analysis/debug scripts from notebook development
+# These are one-off scripts generated during interactive development and should never be committed.
+trigger_analysis*.py
+append_cell14.py
+cell14_test.py
+cell*_temp.py
+extract_func_def.py
+find_*.py
+get_cell_*.py
+read_nb*.py
+search_threshold_func.py
+CELL_SOURCE_ANALYSIS.txt
+FINAL_EXTRACTION_REPORT.txt
+notebook_analysis.txt
+extracted_cells.txt
+extraction_data.pkl
+cell*_full.txt
+new_cell*.txt
+old_cell*.txt
+output_step*.txt
+output_ta*.txt
+depth_thresholds_cell.txt
+dimension_analysis.txt
+run_full_impact_pipeline_body.txt
+
+# Notebook clutter — draft and duplicate notebooks
+*copy.ipynb
+Untitled*.ipynb
+calibration/notebooks/cell2_temp.py
+calibration/notebooks/PET0.ESMF_LogFile

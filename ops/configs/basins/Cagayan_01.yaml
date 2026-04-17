@@ -29,7 +29,7 @@ vulnerability:
   depth_threshold_m: 0.3
   impact_fraction: 1.0
 
-trigger:
-  impact_threshold_people: 100000
-  probability_threshold: 0.3
-  max_lead_time_days: 10
+# trigger: section intentionally omitted.
+# Operational trigger thresholds are NOT configured here — they are derived
+# from the risk profiles in data/processed/Riskprofiles/oep_curves_all_units.json
+# (produced by NB05). See docs/operations/trigger-pipeline-handover.md.

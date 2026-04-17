@@ -9,15 +9,24 @@ Welcome to the PhilFlood documentation! This hub guides you to the right resourc
 2. [FAQ](getting-started/FAQ.md) - Common questions answered
 3. [Notebook 1 Calibration Guide](user-guides/notebook01-calibration-guide.md) - Learn how to calibrate your first basin
 
-**Next**: Run Notebook 1 to calibrate a test basin, then check [Notebook 2 Quickstart](user-guides/notebook02-quickstart.md)
+**Next**: Run Notebook 1 to calibrate a test basin, then work through NB02–NB05 for the full pipeline.
 
 ---
 
 ### 📊 **Practitioners & Data Teams** → User Guides
-- [Notebook 1 Calibration Workflow](user-guides/notebook01-calibration-guide.md) - Deep dive into basin calibration
-- [Notebook 2 Hazard Analysis](user-guides/notebook02-hazard-guide.md) - Flood depth mapping and CLIMADA integration  
-- [Notebook 2 Quickstart](user-guides/notebook02-quickstart.md) - 5-minute quick reference  
-- [Notebook 3 Validation & QA](user-guides/notebook03-validation-guide.md) - Validate calibration against observations, interactive dashboard
+
+**Calibration pipeline (run in order):**
+- [Notebook 1 — EVT Calibration](user-guides/notebook01-calibration-guide.md) - Deep dive into basin calibration
+- [Notebook 2 — Hazard Maps](user-guides/notebook02-hazard-guide.md) - Flood depth mapping and CLIMADA integration (includes quick-start and mode detection)
+- [Notebook 3 — Validation & QA](user-guides/notebook03-validation-guide.md) - Validate calibration against observations, interactive dashboard
+
+**Impact & risk pipeline (run in order, after NB03):**
+- [Notebook 4 — Impact Catalogue](#notebook-4-impact-catalogue) - see inline notes below
+- [Notebook 5 — Risk Profiles](#notebook-5-risk-profiles) - see inline notes below
+- [Notebook 6 — Event Viewer](#notebook-6-event-viewer) - see inline notes below
+- [Notebook 7 — Trigger Validation](#notebook-7-trigger-validation) - see inline notes below
+
+**Reference:**
 - [Troubleshooting Guide](user-guides/troubleshooting.md) - Solutions to common issues
 - [FAQ](getting-started/FAQ.md) - Q&A on calibration, data, CLIMADA
 
@@ -25,7 +34,7 @@ Welcome to the PhilFlood documentation! This hub guides you to the right resourc
 
 ### 🔧 **Operators & System Admins** → Operations
 - [Deployment Guide](operations/deployment.md) - Scheduled monitoring, Docker, cloud deployment
-- [Configuration Management](../ops/configs/README.md) - Basin config formats and validation
+- [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) - Architecture, reusable modules, and implementation checklist for automating the trigger
 - [Troubleshooting](user-guides/troubleshooting.md) - Operational issues and solutions
 
 **Typical workflow**: `philflood monitor --basin-dir ops/configs/basins --format json`
@@ -33,7 +42,7 @@ Welcome to the PhilFlood documentation! This hub guides you to the right resourc
 ---
 
 ### 👨‍💻 **Developers** → Contributing & Technical
-- [Architecture Overview](technical/ARCHITECTURE.md) - Module organization & data flows
+- [Architecture Overview](technical/ARCHITECTURE.md) - Module organization & data flows (up-to-date)
 - [Contributing Guide](contributing/CONTRIBUTING.md) - Development setup, PR process, code standards
 - [Testing Guide](contributing/TESTING.md) - How to run tests, coverage expectations, test patterns
 - [API Reference](technical/api-reference/index.md) - Public module documentation
@@ -56,20 +65,18 @@ docs/
 │
 ├── user-guides/                       # For practitioners
 │   ├── notebook01-calibration-guide.md
-│   ├── notebook02-hazard-guide.md
-│   ├── notebook02-quickstart.md
+│   ├── notebook02-hazard-guide.md     # Includes quick-start and mode detection
 │   ├── notebook03-validation-guide.md
 │   └── troubleshooting.md
 │
 ├── operations/                        # For operators
 │   ├── deployment.md                  # Scheduling, Docker, cloud
-│   └── README.md                      # Operations overview
+│   └── trigger-pipeline-handover.md  # Trigger automation guide
 │
 ├── technical/                         # For developers
-│   ├── ARCHITECTURE.md                # Module design
+│   ├── ARCHITECTURE.md                # Module design (current)
 │   ├── methods-overview.md            # Statistical approach
-│   ├── notebook02-refactoring.md      # Notebook 2 design
-│   ├── notebook02-section4-optimization.md  # Performance tuning
+│   ├── notebook02-section4-optimization.md  # NB02 performance tuning
 │   ├── GLOSSARY.md                    # Technical terms
 │   └── api-reference/                 # Code API docs
 │       └── index.md
@@ -79,6 +86,7 @@ docs/
 │   └── TESTING.md                     # Testing procedures
 │
 └── archive/                           # Historical docs
+    └── VERIFICATION_CHECKLIST_v0.3.0.md
 ```
 
 ---
@@ -90,73 +98,78 @@ docs/
 - **Converts** discharge forecasts to flood impacts (people affected)
 - **Issues** automated trigger alerts when probability exceeds threshold
 
-### Data Flow
-```
-Historical Discharge (GRIB) 
-    ↓ [Notebook 1: EVT Calibration]
-Fitted Parameters (YAML)
-    ↓ [Monitoring: Daily]
-Forecast Discharge Ensemble
-    ↓ [Inference: Apply GPD]
-Impact Probability Distribution
-    ↓ [Decision Logic]
-Trigger Alert (JSON)
-```
+### Full Notebook Pipeline
 
-### Three Main Workflows
+| Notebook | Purpose | Key output |
+|---|---|---|
+| NB00 | Download GloFAS GRIB from ECMWF | Raw GRIB files |
+| NB01 | EVT/POT calibration per GloFAS cell | `evt_pot_calibration.parquet` + `run_config.json` |
+| NB02 | Generate flood depth hazard maps | Flood depth TIFFs per return period |
+| NB03 | Validate NB02 maps vs. observed floods | F1 / IoU / Precision / Recall |
+| NB04 | Build impact event catalogue; fit EVT2 | `event_registry_hist.parquet` + EVT2 fit JSONs |
+| NB05 | 10,000-year YLT → AEP/OEP curves | `watershed_oep_curve.json` + Excel workbook |
+| NB06 | Interactive event viewer for stakeholders | HTML dashboard |
+| NB07 | Evaluate trigger performance vs. reforecast | Trigger ROC stats |
 
-#### 1. **Calibration** (Offline, Research)
-**Where**: Notebook 1 (`calibration/notebooks/01_evt_pot_calibration_workflow.ipynb`)
+**Execution order**: NB01 → NB02 → NB03 → NB04 → NB05 → NB06. NB07 can run after NB05.
 
-**What you do**:
-- Select a basin or municipalities
-- Configure GloFAS stations
-- Run Notebook 1 to calibrate EVT parameters
-- Review diagnostic plots (mean residual life, parameter stability)
+All notebooks auto-detect the latest NB01 output via `philflood.ops.config.load_run_config()`.
 
-**Output**: Calibrated YAML config with threshold, GPD shape/scale, etc.
+### Notebook 4 — Impact Catalogue
+`calibration/notebooks/04_ImpactCatalogue_ImpactEVT_CATMODEL_10000y_UPDATED.ipynb`
 
-**Time**: ~2-3 hours per basin
+- Detects historical flood events from discharge (connected-component analysis)
+- Intersects flood depth TIFFs with WorldPop to compute PopAffected at 11 depth thresholds (0.01–1.0 m)
+- Fits EVT2 (spliced empirical + POT-GPD) on impact series; primary threshold: `DEPTH_PRIMARY = 0.02 m`
+- Processes reforecast ensemble (2005–present) with same multi-threshold pipeline
 
-#### 2. **Hazard Analysis** (Optional, Research)
-**Where**: Notebook 2 (`calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb`)
+**Key outputs** (in `data/processed/impact_catalogue_catmodel/{BASIN_ID}/{RUN_TAG}/`):
+- `evt2/evt2_fit_manifest.json` — status for all 11 thresholds
+- `evt2/evt2_fit_depth_{N}mm.json` — per-threshold EVT2 parameters
+- `evt2/evt2_fit_popaffected_op.json` — backward-compat alias (primary threshold)
+- `event_registry_hist.parquet` — historical events with PopAffected columns
 
-**What you do**:
-- Download JRC global flood depth maps  
-- Regrid to your basin
-- Interpolate depth at forecast return periods
-- Create CLIMADA flood hazard object
+### Notebook 5 — Risk Profiles
+`calibration/notebooks/05_Risk_Profiles_IMPROVED_UPDATED_EPMatrix copy.ipynb`
 
-**Output**: HDF5 hazard file + visualizations
+- 10,000-year YLT simulation → AEP/OEP exceedance curves per municipality/province/watershed
+- `IMPACT_DEPTH_THR_M = 0.2` controls which EVT2 fit and PopAffected column to use (humanitarian standard)
+- Multi-threshold OEP comparison available (`MULTI_THR_ENABLED=True`)
 
-**Time**: ~20-30 mins (mostly tile download)
+**Required export for NB06**: `data/processed/Riskprofiles/watershed_oep_curve.json`
 
-#### 3. **Operational Monitoring** (Online, Production)
-**Where**: CLI command (`philflood monitor`)
+### Notebook 6 — Event Viewer
+`calibration/notebooks/06_flood_event_viewer.ipynb`
 
-**What happens**:
-- Daily GloFAS forecast ingested
-- GPD converts discharge → return period
-- Probability assessment (will impacts exceed threshold?)
-- Automatic trigger decision
-- Results saved as JSON/CSV
+- Interactive HTML dashboard for non-technical stakeholders
+- Classifies event severity using NB05 OEP curve (not raw EVT2 formula)
+- Requires NB05 to have run first (`watershed_oep_curve.json` hard dependency)
 
-**Output**: Trigger alerts
+### Notebook 7 — Trigger Validation
+`calibration/notebooks/07_Trigger_Validation_Reforecast.ipynb`
 
-**Frequency**: Daily (configurable)
+- Evaluates trigger performance against reforecast ensemble (skill / ROC analysis)
+- Reads NB01 EVT1 fits + NB05 OEP curve
+- Detection parameters: `T0_YEARS=2.0`, `A_MIN_KM2=100.0`, `DEPTH_THRESHOLD_M=0.02`
+
+**For automation**: This notebook is the reference implementation for `run_monitoring()`. See [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) for the handover doc.
 
 ---
 
 ## Common Tasks
 
 ### "I want to set up flood monitoring for a new basin"
-1. Have historical GloFAS data ready (download from CDS)
+1. Have historical GloFAS data ready (download from CDS using NB00)
 2. Know the basin geometry (HydroBASINS ID or shapefiles)
 3. Follow [Quick Start Guide](getting-started/quickstart.md)
-4. Run Notebook 1 with your basin using [Calibration Guide](user-guides/notebook01-calibration-guide.md)
+4. Run NB01–NB05 using the notebook guides above
 5. Deploy using [Deployment Guide](operations/deployment.md)
 
-**Est. time**: 4-6 hours (including notebook running)
+### "I want to automate the trigger"
+1. Read [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) — full guide
+2. Review NB07 for the reference implementation
+3. Implement `run_monitoring()` in `src/philflood/pipelines/monitoring.py`
+4. Use the reusable modules listed in the handover doc
 
 ### "I want to understand how PhilFlood works scientifically"
 1. Read [Methods Overview](technical/methods-overview.md) for EVT approach
@@ -164,18 +177,10 @@ Trigger Alert (JSON)
 3. Check [GLOSSARY.md](technical/GLOSSARY.md) for technical terms
 4. Study Notebook 1 markdown cells for hands-on examples
 
-### "I want to modify the EVT calibration or add a new data source"
-1. Fork the GitHub repo
-2. Follow [CONTRIBUTING.md](contributing/CONTRIBUTING.md) setup
-3. Read [ARCHITECTURE.md](technical/ARCHITECTURE.md) for where to add code
-4. Add tests (see [TESTING.md](contributing/TESTING.md))
-5. Submit Pull Request
-
 ### "Monitoring failed with an error"
 1. Check [Troubleshooting Guide](user-guides/troubleshooting.md) for common issues
-2. Verify basin configs: `philflood validate --basin-dir ops/configs/basins`
-3. Check logs for detailed error messages
-4. Search [FAQ](getting-started/FAQ.md) for your specific issue
+2. Check logs for detailed error messages
+3. Search [FAQ](getting-started/FAQ.md) for your specific issue
 
 ---
 
@@ -193,7 +198,6 @@ Trigger Alert (JSON)
 
 ### CLIMADA & Hazard
 - [Notebook 2 Guide](user-guides/notebook02-hazard-guide.md) - Detailed explanation
-- [Notebook 2 Refactoring](technical/notebook02-refactoring.md) - Mode detection
 - [Section 4 Optimization](technical/notebook02-section4-optimization.md) - Performance tuning
 - [Methods Overview - CLIMADA section](technical/methods-overview.md#return-period-to-hazard-integration-climada)
 
@@ -201,10 +205,10 @@ Trigger Alert (JSON)
 - [Notebook 3 Validation Guide](user-guides/notebook03-validation-guide.md) - Extent validation and metrics
 - [GLOSSARY - Validation Metrics](technical/GLOSSARY.md#validation--metrics-notebook-03) - F1, IoU, Precision, Recall definitions
 
-### Operational Deployment
+### Trigger & Operations
+- [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) - Automation guide
 - [Deployment Guide](operations/deployment.md) - All scheduling options
 - [FAQ Operational Section](getting-started/FAQ.md#operational-monitoring) - Monitoring questions
-- [Troubleshooting - Operations](user-guides/troubleshooting.md#operational-monitoring-issues) - Running issues
 
 ### Development & Contributing
 - [Contributing Guide](contributing/CONTRIBUTING.md) - Full development workflow
@@ -219,17 +223,17 @@ Trigger Alert (JSON)
 1. [Quick Start](getting-started/quickstart.md) (15 min)
 2. [Methods Overview](technical/methods-overview.md) (20 min)
 3. [Notebook 1 Guide](user-guides/notebook01-calibration-guide.md) (30 min)
-4. Run Notebook 1 (2-3 hours)
-5. [Notebook 2 Quickstart](user-guides/notebook02-quickstart.md) (5 min)
-6. Run Notebook 2 (20-30 min)
-7. [Notebook 3 Validation Guide](user-guides/notebook03-validation-guide.md) (20 min) - **Before operational deployment**
-8. Run Notebook 3 (30-60 min)
+4. Run NB01 (2-3 hours)
+5. [Notebook 2 Guide](user-guides/notebook02-hazard-guide.md) (10 min)
+6. Run NB02 (20-30 min)
+7. [Notebook 3 Validation Guide](user-guides/notebook03-validation-guide.md) (20 min)
+8. Run NB03–NB07
 
 ### For Operators
 1. [Deployment Guide](operations/deployment.md) (20 min)
-2. [Troubleshooting](user-guides/troubleshooting.md) (15 min)
-3. Review [ops/configs/](../../ops/configs/README.md) examples (10 min)
-4. Set up scheduling (30 min)
+2. [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) (30 min)
+3. [Troubleshooting](user-guides/troubleshooting.md) (15 min)
+4. Review `ops/configs/basins/` example configs (10 min)
 
 ### For Developers
 1. [Architecture](technical/ARCHITECTURE.md) (30 min)
@@ -242,11 +246,6 @@ Trigger Alert (JSON)
 
 ## Documentation Conventions
 
-**✅ Links that work**:
-- Relative paths: `[FAQ](getting-started/FAQ.md)`
-- Links in docs dir to technical: `[ARCHITECTURE](technical/ARCHITECTURE.md)`
-- Links in user guides to docs: `[Methods](../technical/methods-overview.md)`
-
 **📌 Code blocks**: Use `bash` for shell commands, `python` for code
 
 **🔗 Cross-references**: Link from one doc to related content
@@ -257,15 +256,16 @@ Trigger Alert (JSON)
 
 ## Version & Status
 
-**Current Version**: v0.3.0 (February 2026)
+**Current Version**: v0.3.1 (April 2026)
 
 **Status**:
-- ✅ EVT calibration (Notebook 1) - Fully functional
-- ✅ GloFAS  GRIB streaming - Fully optimized
-- ✅ CLIMADA hazard integration (Notebook 2) - Working
-- 🟡 Population impact modeling - Planned for v1.0
-- 🟡 REST API - Planned for v1.0
-- 🟡 Web dashboard - Planned for v2.0
+- ✅ EVT calibration (NB01) - Fully functional with GoF tests and MRL checks
+- ✅ GloFAS GRIB streaming - Fully optimized
+- ✅ Hazard mapping (NB02) - Working
+- ✅ Impact catalogue + EVT2 (NB04) - Multi-threshold (v0.5)
+- ✅ Risk profiles (NB05) - AEP/OEP + multi-threshold OEP
+- 🟡 Operational monitoring (`pipelines/monitoring.py`) - Stub, v1.0 target
+- 🟡 Population impact source module - Partial, v1.0 target
 
 See [CHANGELOG](../../CHANGELOG.md) for detailed roadmap.
 
@@ -276,8 +276,9 @@ See [CHANGELOG](../../CHANGELOG.md) for detailed roadmap.
 | Question Type | Where to Ask |
 |---|---|
 | Installation issues | [FAQ](getting-started/FAQ.md#installation--setup) → [Troubleshooting](user-guides/troubleshooting.md) |
-| How do I...? | [FAQ](getting-started/FAQ.md)  |
+| How do I...? | [FAQ](getting-started/FAQ.md) |
 | Common error message | [Troubleshooting Guide](user-guides/troubleshooting.md#troubleshooting-common-errors) |
+| Trigger automation | [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) |
 | Scientific method question | [Methods Overview](technical/methods-overview.md) + [Glossary](technical/GLOSSARY.md) |
 | Code structure question | [Architecture](technical/ARCHITECTURE.md) |
 | Bug or feature request | [GitHub Issues](https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL/issues) |
@@ -292,43 +293,7 @@ See [CHANGELOG](../../CHANGELOG.md) for detailed roadmap.
 **License**: GPL-3.0  
 **Repository**: [github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL](https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL)
 
-**Citation**:
-```
-PhilFlood: Open-source early action flood trigger for the Philippines
-Repository: https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL
-```
-
 ---
 
-**Last Updated**: February 2026 (v0.3.0)  
+**Last Updated**: April 2026 (v0.3.1)  
 **Maintained By**: IBF Philippines Team
-
----
-
-## Summary of Changes in This Documentation Restructure
-
-**Deleted** (completed milestones, now archived):
-- `IMPLEMENTATION_COMPLETE.md`
-- `IMPLEMENTATION_STATUS.md`
-
-**Moved & Reorganized**:
-- `quickstart.md` → `getting-started/quickstart.md`
-- `NOTEBOOK2_QUICKSTART.md` → `user-guides/notebook02-quickstart.md`
-- `deployment.md` → `operations/deployment.md`
-- `ARCHITECTURE.md` → `technical/ARCHITECTURE.md`
-- `NOTEBOOK2_REFACTORING_SUMMARY.md` → `technical/notebook02-refactoring.md`
-- `IMPLEMENTATION_NOTES.md` → `technical/notebook02-section4-optimization.md`
-- `methods_onepager.md` + `quick_reference_pot_climada.txt` → `technical/methods-overview.md`
-
-**Created New**:
-- `docs/README.md` (this file) - Documentation hub
-- `docs/getting-started/FAQ.md` - Frequently asked questions
-- `docs/technical/GLOSSARY.md` - Technical term definitions
-- `docs/user-guides/troubleshooting.md` - Issue solutions
-- `docs/user-guides/notebook01-calibration-guide.md` - Calibration walkthrough
-- `docs/user-guides/notebook02-hazard-guide.md` - Hazard modeling guide
-- `docs/technical/api-reference/index.md` - API documentation
-- `docs/contributing/CONTRIBUTING.md` - Development guidelines
-- `docs/contributing/TESTING.md` - Testing procedures
-
-**Benefit**: ~10 organized docs in clear paths, replacing 12 scattered files. Clear navigation for new users, operators, and developers.

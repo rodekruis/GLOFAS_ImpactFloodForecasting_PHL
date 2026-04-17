@@ -46,10 +46,9 @@ black --check src/ tests/
 ruff check --fix src/
 black src/ tests/
 
-# CLI entry points
+# CLI entry point (only 'monitor' is implemented; 'validate' and 'calibrate' are stubs)
 philflood monitor --basin ops/configs/basins/Cagayan_01.yaml
-philflood validate --basin ops/configs/basins/Cagayan_01.yaml
-philflood calibrate --basin ops/configs/basins/Cagayan_01.yaml
+philflood monitor --basin-dir ops/configs/basins --format json
 ```
 
 ## Architecture
@@ -63,7 +62,7 @@ The package follows a layered architecture with strict separation of concerns:
 - **`calibration/`** — EVT/POT fitting. `evt_pot.py` is the main entry point; wraps `pyextremes` with memory cleanup and cross-version API compatibility.
 - **`models/`** — Statistical models. `ev/` for extreme value (GPD/POT threshold selection), `impact/` for population exposure calculations (partial in v0.3).
 - **`geo/`** — Spatial ops (HydroBASINS watershed extraction, worldpop raster joins, interpolation).
-- **`pipelines/`** — Orchestration. `monitoring.py` runs operational forecasts; `validation.py` validates basin configs.
+- **`pipelines/`** — Orchestration. `monitoring.py` is the operational monitoring stub (raises `NotImplementedError`; full implementation target: v1.0). No `validation.py` exists yet.
 - **`ops/`** — Production support. `logging_config.py` provides structured JSON logging; `config.py` for runtime configuration.
 - **`qc/`** — Time series quality control.
 - **`utils/`** — Memory profiling, path helpers, event detection/declustering, notebook config.
@@ -204,3 +203,81 @@ The reforecast loop has additional optimization potential beyond what was implem
 - Vectorize `iterrows()` loop in impact computation (est. 2-5x)
 - GRIB subset reading via eccodes/cfgrib (est. 5-20x, high difficulty)
 - Month-level parallelism with multiprocessing (est. Nx, moderate difficulty)
+
+## Trigger Pipeline — Automation Handover
+
+This section is for the engineer implementing automated operational triggering. The calibration pipeline (NB01–NB07) must be run once per basin before operational use; it produces the artifacts that the trigger pipeline consumes daily.
+
+### How the Trigger Decision Works
+
+Triggers are **impact-based and per-spatial-unit** (ADM3 municipality / ADM2 province / watershed). The thresholds come from **risk profiles** — OEP curves computed in NB05 and stored in `data/processed/Riskprofiles/oep_curves_all_units.json`. They are NOT stored in any YAML config file.
+
+**Decision rule**: for each unit and return period in `FLOOD_DETECT_RPS = [2, 5, 10, 20]`:
+- Look up the calibrated impact threshold from `oep_curves_all_units.json` (e.g., RP10 for Amulung = 15,560 people)
+- Count what fraction of ensemble members produce impacts ≥ that threshold
+- If ≥ `TRIGGER_PROB_LINE = 0.50` (50%) of ensemble members exceed it → **triggered**
+
+**Key parameters** (all hardcoded in NB07, should move to config when automating):
+```
+T0_YEARS          = 2.0    # RP for marking a GloFAS cell "active"
+A_MIN_KM2         = 100.0  # minimum contiguous active patch area (km²)
+DEPTH_THRESHOLD_M = 0.02   # flood depth for population exposure (20mm)
+TRIGGER_PROB_LINE = 0.50   # 50% ensemble threshold
+FLOOD_DETECT_RPS  = [2, 5, 10, 20]
+```
+
+> **`TriggerConfig` in `domain/basin.py`** (`impact_threshold_people`, `probability_threshold`, `max_lead_time_days`) is a v1.0 stub. These fields are validated but **never used** in the actual trigger logic. Do not rely on them. The `trigger:` section has been removed from basin YAML files.
+
+### Detection Algorithm (currently in NB07, to be moved to `monitoring.py`)
+
+The detection runs per forecast initialization date:
+
+1. Extract ensemble discharge at basin GloFAS points (`adapters/glofas_grib_v4.py`)
+2. Compute return period per cell using EVT1 fits from NB01 (GPD formula with `u`, `xi`, `sigma`, `lam` from `evt_pot_calibration.parquet`)
+3. Mark cells "active" where RP ≥ `T0_YEARS = 2.0`
+4. Connected-component labeling on active cells; discard patches < `A_MIN_KM2 = 100.0 km²`
+5. For each detected event: intersect flood depth TIFFs (NB02) with WorldPop grid at `DEPTH_THRESHOLD_M = 0.02 m` to get PopAffected
+6. Map PopAffected → RP using EVT2 fit (`evt2/evt2_fit_popaffected_op.json` from NB04)
+7. Compare against `TriggerConfig` thresholds → emit `TriggerDecision`
+
+**Note**: `T0_YEARS`, `A_MIN_KM2`, and `DEPTH_THRESHOLD_M` are currently hardcoded in NB07 Cell 3. They should be moved into `BasinConfig` or `TriggerConfig` when implementing `run_monitoring()`.
+
+### Reusable Source Modules
+
+These are already in `src/philflood/` and can be imported directly:
+
+| Module | Key functions | Purpose |
+|---|---|---|
+| `adapters/glofas_grib_v4.py` | `extract_daily_discharge_for_points()` | Read forecast GRIB at basin GloFAS points |
+| `adapters/glofas_grib_v4_optimized.py` | streaming variant | Use for historical/large datasets |
+| `utils/event_detection.py` | `peak_pick()`, `auto_select_threshold()` | Declustering, independent-event extraction |
+| `models/impact/impact_evt.py` | `fit_gpd_pot()`, `impact_to_return_period()` | EVT2 return-period from impact values |
+| `models/impact/population_exposure.py` | `aggregate_affected_population()` | Raster intersection: depth + population grid |
+| `domain/config.py` | `load_basin_config()` | Deserialize basin YAML → `BasinConfig` |
+| `ops/config.py` | `load_run_config()` | Auto-discover NB01 `run_config.json` |
+| `pipelines/monitoring.py` | `TriggerDecision`, `run_monitoring()` stub | Output struct + orchestration entry point |
+
+### Calibration Artifacts Required at Runtime
+
+The operational pipeline reads these files produced by the calibration notebooks:
+
+| File | Produced by | Contents |
+|---|---|---|
+| `data/processed/calibration/evt_pot/{BASIN_ID}/{RUN_TAG}/evt_pot_calibration.parquet` | NB01 | Per-cell EVT1 GPD fits (`u`, `xi`, `sigma`, `lam`) |
+| `data/processed/climada_hazard/{BASIN_ID}/{RUN_TAG}/*.tif` | NB02 | Flood depth TIFFs per return period |
+| `data/processed/impact_catalogue_catmodel/{BASIN_ID}/{RUN_TAG}/evt2/evt2_fit_popaffected_op.json` | NB04 | EVT2 fit for impact → RP conversion |
+| `data/processed/Riskprofiles/watershed_oep_curve.json` | NB05 | RP–people curve for severity classification |
+| `data/raw/worldpop/PHL/phl_pop_*.tif` | External download | WorldPop population grid |
+
+### What Still Needs to Be Implemented
+
+`src/philflood/pipelines/monitoring.py::run_monitoring()` currently raises `NotImplementedError`. To implement it:
+
+1. Load EVT1 fits from `evt_pot_calibration.parquet` (column rename: `virtual_gauge_id→cell_id`, `threshold_m3s→u`, etc.)
+2. Extract forecast discharge at basin points using `glofas_grib_v4.py`
+3. For each ensemble member and lead time: apply detection algorithm (steps 1–5 above)
+4. Load `oep_curves_all_units.json` — per-unit impact thresholds at each RP
+5. Compute `prob_exceed` per unit × RP across ensemble members
+6. Apply `TRIGGER_PROB_LINE = 0.50` → return `TriggerDecision`
+
+See `docs/operations/trigger-pipeline-handover.md` for the full handover guide with annotated pseudocode.

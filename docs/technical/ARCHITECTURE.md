@@ -9,143 +9,131 @@ The `src/philflood/` package is organized into logical layers following separati
 ### **Core Layers**
 
 #### **`adapters/`** - External System Interfaces
-Handles communication with external data sources and libraries:
+Handles communication with external data sources:
 - **GRIB extraction**: Memory-efficient streaming of GloFAS discharge data from ECMWF GRIB files
-- **CLIMADA interfaces**: Integration with CLIMADA hazard and impact models (v1.0: full integration)
-- **Data loaders**: Parsing and validation of raw data files
 
 **Key files:**
-- `glofas_grib_v4_optimized.py` - Streaming extraction with 94% memory reduction
-- `climada_river.py` - Flood hazard mapping adapter (v0.3: placeholder)
+- `glofas_grib_v4.py` - Standard GRIB extraction for operational use
+- `glofas_grib_v4_optimized.py` - Streaming extraction with 94% memory reduction (use for historical/large datasets)
+
+**Legacy (do not import):**
+- `_archive/` — Deprecated adapters (glofas, glofas_grib_streaming, climada_river, hazard_maps, geo/aoi, geo/worldpop). Removed since v0.3.0.
 
 #### **`domain/`** - Business Logic & Entities
 Contains core domain models and business rules:
 - **Basin configuration**: Structured representation of monitoring regions
-- **Domain entities**: Core objects (discharge thresholds, trigger parameters)
-- **Validation rules**: Business logic for configuration consistency
+- **Domain entities**: Core objects — discharge thresholds, trigger parameters, vulnerability config
 
 **Key files:**
-- `basin.py` - Basin entity with gauge points, thresholds, spatial bounds
-- `config.py` - Configuration schema and validation
-
-#### **`models/`** - Statistical & Impact Models
-Implements scientific models for risk quantification:
-- **`ev/`** - Extreme Value Theory (EVT) models using Generalized Pareto Distribution (GPD)
-- **`impact/`** - Population exposure and impact calculations (v1.0: full implementation)
-- **`risk/`** - Risk metrics including Annual Exceedance Probability (AEP) and Occurrence Exceedance Probability (OEP)
-
-**Key files:**
-- `models/ev/peaks_over_threshold.py` - Peaks Over Threshold (POT) event extraction and declustering
-- `models/ev/gpd_fit.py` - POT GPD fitting and return-level estimation
-- `models/impact/population_exposure.py` - Population-at-risk calculations (v0.3: placeholder)
+- `basin.py` - Dataclasses: `BasinConfig`, `EVTConfig`, `VulnerabilityConfig`, `TriggerConfig`
+- `config.py` - YAML serialization via `load_basin_config(path)` and `dump_basin_config(cfg, path)`
 
 #### **`calibration/`** - Statistical Model Fitting
 Tools for offline model calibration:
 - EVT threshold selection and parameter estimation
 - Bootstrap uncertainty quantification
-- Diagnostic plotting and model validation
 
 **Key files:**
-- `evt_pot.py` - Main EVT Peaks-Over-Threshold (POT) calibration workflow
-- Diagnostics and threshold-analysis helpers under `models/ev/` - Mean residual life plots, parameter stability
+- `evt_pot.py` - Main EVT Peaks-Over-Threshold (POT) calibration workflow; wraps `pyextremes` with version-shimming
 
-#### **`config/`** - Configuration Management
-YAML configuration schema and loading:
-- Basin-specific parameter files (`ops/configs/basins/*.yaml`)
-- Country-level configuration (`ops/configs/country.yaml`)
-- Schema validation and defaults
+#### **`models/`** - Statistical & Impact Models
+Implements scientific models for risk quantification:
+- **`ev/`** - Extreme Value Theory (EVT) models using Generalized Pareto Distribution (GPD): threshold selection, GoF tests, MRL analysis
+- **`impact/`** - Population exposure and impact calculations (v0.3: partial)
 
 **Key files:**
-- `loader.py` - YAML parsing with validation
-- `schema.py` - Configuration schema definitions
+- `models/ev/threshold_selection.py` - `auto_select_threshold()`, `compute_mrl()`, `gpd_gof_test()`
+- `models/impact/impact_evt.py` - `fit_gpd_pot()`, `impact_to_return_period()`
+- `models/impact/population_exposure.py` - `aggregate_affected_population()` (v0.3: placeholder)
 
 #### **`geo/`** - Spatial Operations
 Geographic data processing and analysis:
 - **HydroBASINS**: Watershed boundary extraction and spatial joins
-- **WorldPop**: Population raster processing and exposure calculations
-- **Spatial utilities**: Coordinate transformations, rasterization
+- **WorldPop**: Population raster processing
 
 **Key files:**
-- `hydrobasins.py` - Watershed delineation
-- `worldpop.py` - Population density extraction
+- `geo/hydrobasins.py` - Watershed delineation
+- `geo/worldpop.py` - Population density extraction
 
 #### **`pipelines/`** - Workflow Orchestration
 High-level workflows combining multiple modules:
-- **Monitoring pipeline**: Automated forecast processing and trigger generation
-- **Validation pipeline**: Quality control and performance checks
-- **Calibration pipeline**: End-to-end parameter estimation
 
 **Key files:**
-- `monitoring.py` - Operational forecast monitoring
-- `validation.py` - Configuration and data validation
+- `monitoring.py` - Operational monitoring stub: defines `TriggerDecision` dataclass and `run_monitoring()` (currently raises `NotImplementedError`; full implementation target: v1.0)
+
+> **Note**: There is no `validation.py` in `pipelines/`. Basin config validation is done via `BasinConfig.validate()` in `domain/basin.py`.
 
 #### **`ops/`** - Operational Utilities
 Production-specific functionality:
-- Trigger decision logic
-- Alert formatting and delivery
-- Health checks and monitoring
 
 **Key files:**
-- `trigger.py` - Threshold exceedance detection
-- `alerts.py` - Email and webhook notifications
+- `logging_config.py` - Structured JSON logging via `get_logger(__name__)`
+- `config.py` - NB01 run config auto-discovery: `load_run_config(PROCESSED_ROOT, auto_select_latest=True)` — used by NB02–NB07 to find `run_config.json`
+
+> **Note**: There is no `trigger.py` or `alerts.py` in `ops/`. Trigger decision logic will live in `pipelines/monitoring.py` when implemented.
 
 #### **`qc/`** - Quality Control
 Data quality checks and validation:
-- Discharge data completeness checks
-- Temporal consistency validation
-- Spatial extent verification
 
 **Key files:**
 - `timeseries.py` - Time series quality check implementations
 
 #### **`utils/`** - Cross-cutting Utilities
 Shared infrastructure code:
-- Memory management and optimization
-- Logging configuration
-- Date/time utilities
 
 **Key files:**
 - `memory_utils.py` - Memory profiling and optimization helpers
 - `paths.py` - Common filesystem and path utilities
-- `ops/logging_config.py` - Structured logging setup (under `src/philflood/ops/`)
+- `event_detection.py` - `peak_pick()`, `auto_select_threshold()` — declustering and independent-event extraction
+
 #### **`cli.py`** - Command-Line Interface
-Main entry point for the `philflood` command:
+Main entry point for the `philflood` command. Only `monitor` is implemented:
 ```bash
-philflood monitor --basin Cagayan_01
-philflood validate --config ops/configs/basins/Cagayan_01.yaml
+philflood monitor --basin ops/configs/basins/Cagayan_01.yaml
+philflood monitor --basin-dir ops/configs/basins --format json --output results/
 ```
 
 ---
 
 ## Data Flow
 
-### **Calibration Workflow** (Offline, Research Phase)
+### **Calibration Workflow** (Offline, Research Phase — Notebooks NB01–NB07)
+
 ```
-Raw GloFAS → adapters/glofas_grib → calibration/evt_calibrator → config/basin.yaml
-    GRIB       (streaming extract)     (GPD fitting, bootstrap)    (thresholds)
+Raw GloFAS GRIB  →  NB01 (EVT1 calibration)  →  run_config.json + evt_pot_calibration.parquet
+                                 ↓
+                     NB02 (hazard maps)       →  flood depth TIFFs per return period
+                                 ↓
+                     NB03 (validation)        →  F1 / IoU / Precision / Recall per RP
+                                 ↓
+                     NB04 (impact catalogue)  →  event_registry.parquet + EVT2 fit JSONs
+                                 ↓
+                     NB05 (risk profiles)     →  watershed_oep_curve.json + Excel workbook
+                                 ↓
+                     NB06 (event viewer)      →  interactive HTML dashboard
+                                 ↓
+                     NB07 (trigger validation)→  trigger performance stats vs. reforecast
 ```
 
-1. **Extract** historical discharge via `adapters/glofas_grib_v4_optimized.py`
-2. **Calibrate** EVT models using `calibration/evt_calibrator.py`
-3. **Generate** basin configuration with thresholds in `ops/configs/basins/*.yaml`
+### **Operational Workflow** (Online, Production Phase — Target v1.0)
 
-### **Operational Workflow** (Online, Production Phase)
 ```
-GloFAS Forecast → adapters → models/ev → models/impact → ops/trigger → Alert
-   (Real-time)     (extract)  (Q→RP)    (RP→People)    (threshold)   (email)
+Daily GloFAS Forecast  →  adapters/glofas_grib_v4  →  discharge per ensemble member
+                                    ↓
+                   models/ev (EVT1 GPD fits from NB01)  →  return period per cell
+                                    ↓
+                   models/impact (NB02 depth TIFFs + worldpop)  →  PopAffected
+                                    ↓
+                   models/impact (EVT2 fit from NB04)  →  P(impact > threshold)
+                                    ↓
+                   pipelines/monitoring.run_monitoring()  →  TriggerDecision (triggered: bool)
 ```
 
-1. **Ingest** forecast via `adapters/glofas_grib_v4_optimized.py`
-2. **Convert** discharge to return period using calibrated `models/ev/` parameters
-3. **Calculate** population impact via `models/impact/` (v1.0: full integration)
-4. **Evaluate** triggers using `ops/trigger.py` logic
-5. **Issue** alerts via `ops/alerts.py`
-
-### **Validation Workflow** (Continuous)
-```
-Configuration → config/loader → qc/data_quality → pipelines/validation → Report
-  (Basin YAML)   (parse+validate)  (quality checks)   (orchestrate)      (JSON)
-```
+**Required calibration artifacts** (produced once by NB01–NB05, read daily):
+- `evt_pot_calibration.parquet` — EVT1 per-cell GPD parameters
+- Flood depth TIFFs — NB02 hazard maps per return period
+- `evt2_fit_popaffected_op.json` — NB04 EVT2 fit for impact → RP
+- `watershed_oep_curve.json` — NB05 severity thresholds (RP → people affected)
 
 ---
 
@@ -154,46 +142,38 @@ Configuration → config/loader → qc/data_quality → pipelines/validation →
 ### **Separation of Calibration & Operations**
 - **Calibration** (`calibration/`, notebooks): Research-grade, interactive, parameter estimation
 - **Operations** (`ops/`, `pipelines/`): Production-grade, automated, fixed parameters
-- No model re-fitting in production—only apply pre-calibrated thresholds
+- No model re-fitting in production — only apply pre-calibrated thresholds
 
 ### **Adapter Pattern for External Dependencies**
-- All external systems accessed via `adapters/` to enable:
-  - Easy mocking for tests
-  - Swapping data sources (e.g., GloFAS v3 → v4)
-  - Fallback when CLIMADA unavailable
+- All external systems accessed via `adapters/` to enable easy mocking for tests and data-source swapping
 
 ### **Domain-Driven Design**
 - Core business logic in `domain/` independent of data sources
-- Clear separation between models (statistics) and domain (business rules)
-
-### **Configuration as Code**
-- All basin-specific parameters in YAML (version-controlled)
-- Schema validation prevents configuration errors
-- Enables reproducibility and auditability
+- `domain/basin.py` defines canonical dataclasses; `domain/config.py` handles YAML I/O
+- All basin-specific parameters are YAML-serialized (version-controlled, schema-validated)
 
 ---
 
 ## Development Status by Module
 
 ### **✅ Fully Implemented (v0.3.0)**
-- `adapters/glofas_grib_*` - Streaming extraction, optimized
-- `calibration/` - EVT fitting, bootstrap, diagnostics
-- `models/ev/` - GPD parameter estimation, return level calculation
-- `config/` - YAML schema and validation
-- `domain/` - Basin entities and business rules
-- `cli.py` - Command-line interface
-- `utils/` - Memory management, logging
+- `adapters/glofas_grib_v4*` — Streaming extraction, optimized
+- `calibration/evt_pot.py` — EVT fitting, bootstrap, diagnostics
+- `models/ev/` — GPD parameter estimation, return level calculation, GoF tests
+- `domain/` — Basin entities and business rules, YAML I/O
+- `ops/config.py` — NB01 run_config auto-discovery
+- `ops/logging_config.py` — Structured logging
+- `cli.py` — `monitor` command
+- `utils/` — Memory management, event detection/declustering
 
-### **🟡 Partial Implementation (v0.3.0 → v1.0.0)**
-- `adapters/climada_river.py` - Returns placeholder zeros, full integration in v1.0
-- `models/impact/` - Placeholder population exposure, full implementation in v1.0
-- `pipelines/monitoring.py` - Skeleton present, requires CLIMADA completion
-- `ops/trigger.py` - Basic threshold logic, impact-based triggers in v1.0
+### **🟡 Partial / Stub (v0.3.0 → v1.0.0)**
+- `models/impact/population_exposure.py` — Placeholder; full implementation in v1.0
+- `pipelines/monitoring.py` — `TriggerDecision` struct is correct; `run_monitoring()` raises `NotImplementedError`
 
 ### **📋 Planned (v1.0 → v2.0)**
-- REST API for programmatic access
-- Web dashboard for visualization
-- Real-time GloFAS ingestion (currently manual download)
+- Full `run_monitoring()` implementation with CLIMADA depth maps and worldpop
+- REST API for programmatic trigger access
+- Real-time GloFAS ingestion (currently manual download via NB00)
 - Automated model retraining pipeline
 
 See [CHANGELOG.md](../../CHANGELOG.md) for detailed roadmap.
@@ -206,19 +186,23 @@ See [CHANGELOG.md](../../CHANGELOG.md) for detailed roadmap.
 - **Understand the methodology** → [Methods Overview](methods-overview.md)
 - **Run my first calibration** → [Getting Started Guide](../getting-started/quickstart.md)
 - **Deploy to production** → [Deployment Guide](../operations/deployment.md)
+- **Understand the trigger pipeline** → [Trigger Pipeline Handover](../operations/trigger-pipeline-handover.md)
 - **Modify EVT calibration** → `src/philflood/calibration/` + `calibration/notebooks/`
 - **Add a new data source** → Implement new adapter in `src/philflood/adapters/`
-- **Change trigger logic** → `src/philflood/ops/trigger.py`
-- **Debug configuration issues** → `src/philflood/config/` + `src/philflood/qc/`
+- **Implement trigger logic** → `src/philflood/pipelines/monitoring.py` (see trigger handover doc)
+- **Debug configuration issues** → `src/philflood/domain/config.py` + `src/philflood/qc/`
 
 ### **Import Paths**
 ```python
 # Correct module imports
+from philflood.adapters.glofas_grib_v4 import extract_daily_discharge_for_points
 from philflood.adapters.glofas_grib_v4_optimized import extract_timeseries_streaming
 from philflood.calibration.evt_pot import calibrate_pot_model
-from philflood.models.ev.peaks_over_threshold import calculate_return_levels
-from philflood.config.basin import load_basin_config
-from philflood.pipelines.monitoring import run_monitoring_pipeline
+from philflood.models.ev.threshold_selection import auto_select_threshold, compute_mrl
+from philflood.models.impact.impact_evt import impact_to_return_period
+from philflood.domain.config import load_basin_config
+from philflood.ops.config import load_run_config
+from philflood.pipelines.monitoring import TriggerDecision, run_monitoring
 ```
 
 ### **Configuration Files**
@@ -236,11 +220,11 @@ ops/configs/
 
 When adding new modules:
 1. **Identify the layer**: Does this belong in `adapters/`, `models/`, `domain/`, etc.?
-2. **Check dependencies**: Can this module import from lower layers only? (e.g., `pipelines/` can import `models/`, but not vice versa)
+2. **Check dependencies**: Can this module import from lower layers only? (`pipelines/` can import `models/`, but not vice versa)
 3. **Add tests**: New modules require corresponding test files in `tests/`
 4. **Update this document**: Add module description and data flow diagram
 
 ---
 
-**Last Updated:** February 6, 2026 (v0.3.0)  
+**Last Updated:** April 2026 (v0.3.1)  
 **Maintainers:** IBF Philippines Team
