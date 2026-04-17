@@ -41,9 +41,9 @@ class TestAutoSelectThreshold(unittest.TestCase):
             )
 
     def test_non_numeric_candidates_raise(self):
-        with self.assertRaisesRegex(ValueError, r"must contain only numeric quantiles"):
+        with self.assertRaisesRegex(ValueError, r"must contain only numeric quantiles\."):
             auto_select_threshold(
-                self.series, ["0.90", "not-a-number"], decluster_days=3, min_events=2, max_events=20
+                self.series, [0.90, "invalid"], decluster_days=3, min_events=2, max_events=20
             )
 
     def test_valid_candidates_still_work(self):

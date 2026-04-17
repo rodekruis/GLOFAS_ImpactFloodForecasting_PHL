@@ -138,13 +138,19 @@ def auto_select_threshold(
     try:
         q_values = [float(q) for q in q_candidates]
     except (TypeError, ValueError) as exc:
-        raise ValueError("q_candidates must contain only numeric quantiles in [0, 1].") from exc
+        raise ValueError("q_candidates must contain only numeric quantiles.") from exc
     if not q_values:
         raise ValueError("q_candidates must contain at least one quantile in [0, 1].")
 
-    invalid_q = [q for q in q_values if not np.isfinite(q) or q < 0.0 or q > 1.0]
-    if invalid_q:
-        raise ValueError(f"All q_candidates must be finite quantiles in [0, 1], got: {invalid_q}")
+    invalid_non_finite = [q for q in q_values if not np.isfinite(q)]
+    if invalid_non_finite:
+        raise ValueError(
+            f"All q_candidates must be finite quantiles in [0, 1], got: {invalid_non_finite}"
+        )
+
+    invalid_range = [q for q in q_values if q < 0.0 or q > 1.0]
+    if invalid_range:
+        raise ValueError(f"All q_candidates must be in [0, 1], got: {invalid_range}")
 
     # Compute candidate thresholds from quantiles and ensure unique,
     # sorted values
