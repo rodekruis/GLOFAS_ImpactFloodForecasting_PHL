@@ -135,9 +135,20 @@ def auto_select_threshold(
     if s.empty:
         raise ValueError("Time series is empty after removing NaN values.")
 
+    q_values = [float(q) for q in q_candidates]
+    if not q_values:
+        raise ValueError("q_candidates must contain at least one quantile in [0, 1].")
+
+    invalid_q = [q for q in q_values if not np.isfinite(q) or q < 0.0 or q > 1.0]
+    if invalid_q:
+        raise ValueError(f"All q_candidates must be finite quantiles in [0, 1], got: {invalid_q}")
+
     # Compute candidate thresholds from quantiles and ensure unique,
     # sorted values
-    thresholds = sorted(set(float(s.quantile(q)) for q in q_candidates))
+    quantiles = [float(s.quantile(q)) for q in q_values]
+    thresholds = sorted({thr for thr in quantiles if np.isfinite(thr)})
+    if not thresholds:
+        raise ValueError("No valid thresholds computed from q_candidates.")
     threshold_counts: List[Tuple[float, int]] = []
     for thr in thresholds:
         peak_dates = peak_pick(s, threshold=thr, decluster_days=decluster_days)
