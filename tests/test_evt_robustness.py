@@ -46,8 +46,8 @@ class TestScipySignConvention:
         n_days = 365 * 20
         dates = pd.date_range("2000-01-01", periods=n_days, freq="D")
         # Simulate heavy-tailed discharge
-        base = np.random.exponential(50, n_days)
-        extremes = np.random.poisson(0.05, n_days) * np.random.pareto(2.5, n_days) * 200
+        base = rng.exponential(50, n_days)
+        extremes = rng.poisson(0.05, n_days) * rng.pareto(2.5, n_days) * 200
         discharge = pd.Series(base + extremes + 20, index=dates)
 
         _, _, diag_df = auto_select_threshold_pot(

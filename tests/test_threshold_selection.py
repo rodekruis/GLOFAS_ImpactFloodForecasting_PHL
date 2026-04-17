@@ -7,7 +7,6 @@ discharge time series.
 import unittest
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
 
 from philflood.models.ev.threshold_selection import auto_select_threshold_pot
 

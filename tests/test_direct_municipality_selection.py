@@ -6,7 +6,6 @@ by intersection with municipality polygons (without population weighting or buff
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 from shapely.geometry import Polygon
 
 
@@ -17,8 +16,6 @@ def test_deprecated_functions_raise_errors():
     This test verifies they cannot be imported from the main package,
     ensuring the deprecation is enforced.
     """
-    import pytest
-    
     # Test that aoi module is no longer importable
     with pytest.raises(ModuleNotFoundError):
         from philflood.geo.aoi import build_municipality_aoi

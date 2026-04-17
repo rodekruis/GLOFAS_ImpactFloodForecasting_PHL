@@ -45,8 +45,13 @@ def setup_logging(
     adapter_log_level : Optional[str], optional
         If provided, sets log level for philflood.adapters.* loggers.
     """
+    def _resolve_level(level_name: Optional[str], default: int = logging.INFO) -> int:
+        if not level_name:
+            return default
+        return logging._nameToLevel.get(level_name.upper(), default)
+
     root_logger = logging.getLogger("philflood")
-    root_logger.setLevel(getattr(logging, log_level.upper()))
+    root_logger.setLevel(_resolve_level(log_level))
     
     # Remove existing handlers
     root_logger.handlers.clear()
@@ -95,9 +100,7 @@ def setup_logging(
     logging.getLogger("rasterio").setLevel(logging.WARNING)
 
     if adapter_log_level:
-        logging.getLogger("philflood.adapters").setLevel(
-            getattr(logging, adapter_log_level.upper())
-        )
+        logging.getLogger("philflood.adapters").setLevel(_resolve_level(adapter_log_level))
 
 
 def get_logger(name: str) -> logging.Logger:
