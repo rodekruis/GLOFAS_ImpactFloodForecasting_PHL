@@ -1,6 +1,6 @@
 # Trigger Pipeline — Automation Handover Guide
 
-This document is for the engineer implementing automated operational triggering. It explains what the trigger system decides, what has been built, what is still a stub, and exactly which components can be reused.
+This document is for Phuoc, who will  be implementing automated operational triggering. It explains what the trigger system decides, what has been built, what is still a stub, and exactly which components can be reused.
 
 **Status note**: The trigger algorithm documented here is implemented in NB07 for reforecast validation but has **not yet been accepted by START Network** as operational. NB07 is the reference implementation — the operational pipeline still needs to be built.
 
