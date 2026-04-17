@@ -1,15 +1,20 @@
-"""Impact modelling utilities.
+"""Impact modelling subpackage.
 
-Functions in this subpackage convert flood hazard maps into estimates
-of people affected.  They handle exposure data loading, application of
-vulnerability curves and aggregation to spatial units (e.g. sub‑
-catchments or administrative boundaries).  These functions should be
-pure, meaning they do not perform file I/O; instead they accept
-inputs (depth rasters, exposure grids, configuration objects) and
-return data structures ready for further analysis.
+This package contains modules for computing flood impacts on
+populations and fitting impact‑based extreme value models.  These
+modules were extracted from the calibration notebooks to provide
+reusable building blocks for the calibration and monitoring pipelines.
+
+Submodules
+----------
+impact_evt
+    Functions for fitting Peaks‑Over‑Threshold (POT) models to impact
+    severity data and mapping impact values to return periods.
+
+population_exposure
+    Utilities for aggregating affected population by administrative
+    regions given flood depth rasters and population maps.
 """
 
-__all__ = [
-    "population_exposure",
-    "vulnerability",
-]
+from . import impact_evt  # noqa: F401
+from . import population_exposure  # noqa: F401

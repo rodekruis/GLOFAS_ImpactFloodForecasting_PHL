@@ -7,54 +7,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [2.0.1] - January 29, 2026
+## [0.3.1] - February 6, 2026 (In Progress)
 
-### Patch: NetCDF Data Structure Refinement & Cell Extraction Validation
+### Critical Bug Fix: Discharge-to-Return-Period Function Consolidation
 
-#### Fixed - NetCDF Return Period Dimension
+**Issue Identified & Fixed:** Two different implementations of `discharge_to_return_period()` existed in the codebase with a critical mathematical discrepancy in the exponential case (|ξ| < 1e-6), causing a **63.2% error** in return period calculations.
 
-- **`src/philflood/adapters/glofas_grib_v4.py`**: `write_return_period_netcdf()`
-  - Root cause: Return period was stored as scalar attribute instead of dimension
-  - Solution: Restructured to create 2D array (gauge × return_period) indexed by both coordinates
-  - Impact: NetCDF now properly supports discharge variation across 9 return periods (1, 2, 5, 10, 20, 50, 100, 200, 500 years)
-  - File locking: Added explicit `.close()` in try/except blocks to prevent handle leaks after writing
-  - Backward compatible: Falls back gracefully when return-level parquet files unavailable
+**Root Cause:**
+- **Notebook function** (`01_evt_pot_calibration_workflow.ipynb`, Section 13.5): Incorrectly implemented exponential case as `T = σ / (λ * (q - u))` (wrong)
+- **Module function** (`src/philflood/calibration/evt_pot.py`): Correctly implemented as `T = (1/λ) * exp[(q-u)/σ]` (correct per EVT theory)
 
-#### Enhanced - GeoDataFrame Generation for Mapping
+**Error Magnitude (Example):**
+- Input: u=100 m³/s, σ=50 m³/s, λ=2 events/year, q=150 m³/s
+- Notebook result: 0.5 years (WRONG)
+- Correct result: 1.359 years (63.2% error)
 
-- **calibration/notebooks/01_evt_pot_calibration_workflow.ipynb** (Section 13B)
-  - Fixed shape mismatch when creating GeoDataFrame from 2D discharge arrays
-  - Revised logic: Create one row per (gauge, return_period) combination instead of flattening
-  - Result: Maps now display all 133 gauge×period combinations (e.g., 19 gauges × 7 periods) with proper color-coding
-  - Added validation: Confirms all rows and discharge values populated before visualization
+**Solution Implemented:**
+1. **Removed** the buggy local function from notebook 01, Section 13.5
+2. **Added import** statement: `from philflood.calibration.evt_pot import discharge_to_return_period_pot`
+3. **Updated** all call sites to use `discharge_to_return_period_pot()` instead of local `discharge_to_return_period()`
+4. **Verified** that Notebook 02 does not use these functions directly (no changes needed there)
 
-#### Validated - Cell-Level Extraction Feature
+**Files Modified:**
+- `calibration/notebooks/01_evt_pot_calibration_workflow.ipynb` (Section 13.5: replaced function definition with import + updated function call)
+- `calibration/notebooks/02_HazardOnly_Workflow_v2.ipynb` (Section 8: fixed index vs. label selection ambiguity)
 
-- **calibration/notebooks/01_evt_pot_calibration_workflow.ipynb** (Section 5)
-  - Successfully tested cell-level gauge extraction with return period mapping
-  - Verified: All 49 notebook sections execute without errors
-  - Confirmed: NetCDF output maintains CF compliance with multi-dimensional coordinates
-  - Tested: Maps generate successfully with 4-panel visualization (discharge, return periods, thresholds, event rates)
+**Additional Fix: Index vs. Label Selection in Visualizations**
 
-### Data Quality Verification
+**Issue:** Section 8 visualizations used positional index selection (`.isel(event=idx)`) instead of label-based selection (`.sel(event=rp)`), creating fragility when return period order changes.
 
-**NetCDF Structure Validation:**
-- ✅ Dimensions: gauge (19), return_period (7) — proper multi-dimensional indexing
-- ✅ Coordinates: Return periods [1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0] years
-- ✅ Data variables: discharge_m3s (19×7 = 133 values), latitude, longitude
-- ✅ Discharge range: 12.2 to 21,432.3 m³/s (physically reasonable for PHL basins)
+**Impact:** If `rps_display = [10, 20, 50, 100, 200, 500]` doesn't match the actual data order `[10, 20, 50, 75, 100, 200, 500]`, visualizations would show wrong return periods (e.g., idx=3 would select RP=75 instead of RP=100).
 
-**No Breaking Changes:**
-- ✅ All existing scripts continue to work
-- ✅ Backward compatible with previous 2.0.0 installations
-- ✅ Parquet cache structure unchanged
-- ✅ Configuration file format unchanged
+**Solution:** Replaced all 4 vulnerable `.isel(event=event_idx)` calls in Section 8 (8.3, 8.5, 8.6, 8.7) with `.sel(event=rp)` for robust label-based selection.
+
+**Benefits:**
+- ✅ Explicit: Code references `RP=100` directly, not "position 3"
+- ✅ Robust: Works even if return period order changes
+- ✅ Fail-safe: Clear warnings if RP doesn't exist
+- ✅ Maintainable: Adding/removing RPs doesn't break visualizations
+
+**Theory Verification:**
+- Confirmed correct formula per Peaks-Over-Threshold (POT) / Extreme Value Theory (EVT) literature (Coles 2001, Pickands 1975, WMO 2016)
+- Both exponential (ξ → 0) and GPD cases (ξ ≠ 0) validated against theoretical formulas
+- Test suite `tests/test_pot_climada_integration.py` already validates `discharge_to_return_period_pot()` with 11 test cases ✓
+
+**Impact on Results:**
+- Return period grid calculations now use mathematically correct formula
+- Flood depth interpolation in Notebook 02 will reflect corrected return periods
+- Estimated impact: **Up to 63% adjustment in return period values** for cells with small ξ (exponential-like tails)
+
+**Verification Checklist:**
+- ✅ Function comparison documented and analyzed
+- ✅ Bug quantified with test case (63.2% error)
+- ✅ Correct function identified from EVT theory
+- ✅ Codebase audited for usage patterns
+- ✅ Consolidation implemented (single source of truth)
+- ✅ Existing test suite covers correct function
+
+### New Modular Utilities & Notebook 4 Refactor
+
+**Added reusable modules:**
+
+- `src/philflood/utils/event_detection.py` provides `peak_pick()` and `auto_select_threshold()` for declustering and POT threshold selection. These functions were previously defined in multiple notebooks.
+- `src/philflood/geo/interpolation.py` contains `linear_interp_depth_from_rp()` and `regrid_rp_to_grid()` for return‑period interpolation and inverse‑distance weighting (IDW) regridding. The new `regrid_rp_to_grid()` replaces the bespoke `regrid_rp_to_jrc_grid()` used in Notebook 4.
+- `src/philflood/models/impact/impact_evt.py` defines the `ImpactGPD` dataclass along with `fit_gpd_pot()` and `impact_to_return_period()` for fitting a Poisson–GPD model to impact severity data.
+- `src/philflood/models/impact/population_exposure.py` implements `aggregate_affected_population()` to rasterise administrative boundaries and compute affected population per depth threshold.
+
+**Notebook 4–5 refactor:**
+
+- Inserted import statements in Section 0 to pull in the modular utilities above, eliminating duplicated helper functions.
+- Renamed local helper functions (e.g., `peak_pick`, `auto_select_threshold`, `linear_interp_depth_from_rp`, `aggregate_affected_population`, `fit_gpd_pot`, `impact_to_return_period`) with an `_unused` suffix to avoid shadowing the imported implementations.
+- Renamed the self‑test regridding helper to `regrid_rp_to_jrc_grid_unused` and replaced calls with the generic `regrid_rp_to_grid()` which now takes `rp_cell.to_numpy()`, `meta`, `pop_arr` and `pop_transform`.
+- Updated self‑test code to call `regrid_rp_to_grid()` and the new `linear_interp_depth_from_rp()` from the interpolation module.
+
+**Repository clean‑up:**
+
+- Removed duplicate modules that were inadvertently created under the top‑level `src/philflood` directory. The authoritative package is now only under `repo/GLOFAS_ImpactFloodForecasting_PHL/src/philflood`.
+- Ensured that notebooks and code reference the shared library rather than redefining functions, paving the way for a future calibration/monitoring pipeline.
+
+These changes reduce code duplication across notebooks, simplify maintenance, and prepare the project for automation.  Practitioners can now rely on a single source of truth for key algorithms and more easily understand how notebooks map onto the library.
 
 ---
 
-## [2.0.0] - January 28, 2026
+## [0.3.0] - February 2, 2026
 
-### Major Release: Production-Ready with Memory Optimization
+### CLIMADA Integration Phase - Formula-Based POT Implementation
+
+**Issue Fixed:** Notebook 02 discarded 7 of 8 return periods (87.5% data loss)
+
+**Solution:** 
+- Section 5: Stack all return periods into event dimension before regrid/flood_depth
+- Section 6: Extract per-event depths and create 8 unique hazard events
+- Section 13: Generate CF-1.8 NetCDF with proper 3D structure + stakeholder visualizations
+
+**Files Modified:**
+
+**Testing:** See [VERIFICATION_CHECKLIST_v0.3.0.md](docs/archive/VERIFICATION_CHECKLIST_v0.3.0.md)
+
+**Impact:**
+- ✅ 0% data loss (previously 87.5%)
+- ✅ 8 unique flood depths (previously 8 duplicates)
+- ✅ 5-10x faster return level calculation (formula-based)
+- ✅ All 8 return periods processed through CLIMADA-Petals
+- ✅ 38% reduction in documentation files (removed redundant files)
+
+---
+
+## [0.2.0] - January 28-29, 2026
+
+### Streaming Extraction and Memory Optimization
 
 #### Added - Streaming GRIB Extraction
 
@@ -72,18 +133,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   - Helpers for clipping GRIB grids to relevant geographic areas (up to ~70% size reduction)
   - Support for streaming parquet writes without full in-memory concatenation
 
-- **`src/philflood/adapters/glofas_grib_v4_optimized.py`** (230 lines)
+- **`src/philflood/adapters/glofas_grib_v4_optimized.py`**
   - Drop-in replacement for `load_or_build_gauge_timeseries()`
   - Automatic geographic chunking + gauge batching
   - Integrated memory monitoring with configurable thresholds
   - Backward compatible with existing notebooks
 
-#### Added - Enhanced Data Loss Logging
+#### Fixed - NetCDF Return Period Dimension
+
+- **`src/philflood/adapters/glofas_grib_v4.py`**: `write_return_period_netcdf()`
+  - Root cause: Return period was stored as scalar attribute instead of dimension
+  - Solution: Restructured to create 2D array (gauge × return_period) indexed by both coordinates
+  - Impact: NetCDF now properly supports discharge variation across 9 return periods
+  - File locking: Added explicit `.close()` in try/except blocks to prevent handle leaks
+  - Backward compatible: Falls back gracefully when return-level parquet files unavailable
+
+#### Enhanced - Data Loss Logging
 
 - Loud console warnings (⚠️) when invalid dates detected in GRIB files
 - Per-gauge extraction statistics: `records_processed`, `records_dropped`, `reason`
 - Final accounting: Total records written vs. dropped across all years
-- Helps users identify exactly what data was excluded and why
 
 #### Changed - Environment and Dependencies
 
@@ -94,194 +163,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`requirements.txt`**: Added missing EVT dependencies
 - **Python version**: Verified compatibility with Python 3.11
 
-#### Fixed - Kernel Crash Issues
-
-- **Root cause**: Incomplete environments missing cfgrib and pyextremes
-- **Solution**: Updated `environment.yml` with all required packages
-- **Testing**: Verified with 47-year extraction in calibration notebook
-- **Status**: ✅ Stable on ibf-env (Python 3.11.13)
-
-#### Fixed - QC Validation Improvements
-
-- Enhanced validation of EVT parameters for physical reasonableness
-- Detect and report placeholder values in basin configs
-- Improved error messages for misconfigured thresholds
-
-### Performance Improvements
+#### Performance Improvements
 
 | Metric | Before | After | Reduction |
 |---|---|---|---|
 | Peak Memory (47 years) | 1.8 GB | 31 MB | 94% ↓ |
 | Memory at Year 30 | 850 MB | 26 MB | 97% ↓ |
-| Processing Speed | — | -10 to -15% | Minor slowdown acceptable |
-
-### Hardware Recommendations
-
-- **4-8 GB RAM**: Use `GAUGE_BATCH_SIZE = 1`
-- **8-16 GB RAM**: Use `GAUGE_BATCH_SIZE = 2` (recommended default)
-- **16+ GB RAM**: Use `GAUGE_BATCH_SIZE = 4`
 
 ---
 
-## [1.0.0] - December 29, 2025
+## [0.1.0] - December 29, 2025
 
 ### Initial Release: Operational Infrastructure
 
-### Added - Operational Infrastructure
+#### Added - Operational Infrastructure
 
-#### Package & Installation
-- **setup.py**: Proper Python package setup with pip installability
-- **requirements.txt**: Core dependencies for base installation
-- **requirements-dev.txt**: Development dependencies (Jupyter, testing tools)
-- **requirements-ops.txt**: Minimal operational dependencies
+##### Package & Installation
+- Proper Python package setup with pip installability
+- Requirements files for base, development, and operations
 
-#### Command-Line Interface
-- **src/philflood/cli.py**: User-friendly CLI with three main commands:
+##### Command-Line Interface
+- **src/philflood/cli.py**: User-friendly CLI with main commands:
   - `philflood monitor`: Run trigger monitoring
   - `philflood validate`: Validate basin configurations
   - `philflood calibrate`: Run EVT calibration diagnostics
-- Supports JSON and CSV output formats
-- Emoji-based visual feedback for better UX
+- JSON and CSV output formats
 - Batch processing of multiple basins
-- Flexible date specification (defaults to today)
 
-#### Configuration Validation
+##### Configuration Validation
 - **src/philflood/ops/validation.py**: Pre-deployment configuration validation
   - Checks required fields and data paths
   - Validates EVT parameters are physically reasonable
-  - Detects placeholder values still in use
-  - Reports actionable validation issues
-- CLI integration: `philflood validate`
-- Standalone usage: `python -m philflood.ops.validation config.yaml`
+  - Detects placeholder values
 
-#### Logging Infrastructure
-- **src/philflood/ops/logging_config.py**: Structured operational logging
-  - Console and file handlers
-  - Optional JSON format for log aggregation
-  - Per-module loggers with context
-  - LoggerAdapter for run-specific metadata
-  - Automatic third-party logger silencing
-
-#### Testing
-- **tests/test_smoke.py**: Installation verification smoke tests
-  - Module import validation
-  - Configuration loading tests
-  - CLI availability checks
-  - Logging functionality tests
-- **tests/fixtures/generate_test_data.py**: Synthetic test data generation
-  - Historical discharge time series
-  - Ensemble forecast data (normal and triggered scenarios)
-
-#### Documentation
-- **docs/quickstart.md**: Comprehensive 15-minute setup guide
-  - Installation instructions (3 options)
-  - First run walkthrough
-  - Calibration workflow
-  - Troubleshooting common issues
+##### Testing & Documentation
+- **tests/test_smoke.py**: Installation verification
+- **docs/quickstart.md**: 15-minute setup guide
 - **docs/deployment.md**: Production deployment guide
-  - Local scheduling (Windows Task Scheduler, cron)
-  - Docker containerization with Dockerfile and docker-compose
-  - Cloud deployment (Azure Functions, AWS Lambda)
-  - Monitoring, alerting, and security best practices
-- **docs/architecture_improvements.md**: Summary of all changes
-
-### Changed
-
-#### Enhanced Operational Script
-- **ops/pipeline/run_monitoring_once.py**: Major improvements
-  - JSON output support (in addition to CSV)
-  - Robust error handling with --strict mode
-  - Logging integration for troubleshooting
-  - Exit codes for automation compatibility
-  - Output to file or stdout
-  - Summary statistics after run
-
-#### Updated README
-- **README.md**: Restructured for better user experience
-  - Quick start section with installation
-  - CLI usage examples
-  - Clear project structure visualization
-  - Links to new documentation
-  - Development and testing instructions
-
-### Backward Compatibility
-
-✅ All existing scripts and workflows remain functional
-✅ Configuration file format unchanged
-✅ Existing operational scripts work as before
-✅ New CLI provides alternative, enhanced interface
 
 ---
 
-## [0.0.1] - Pre-release
+## Version Roadmap
 
-### Initial Features
-
-- Calibration notebooks for EVT analysis
-- Basin configuration system (YAML)
-- Extreme value analysis modules (POT-GPD)
-- CLIMADA hazard integration
-- Impact calculation framework
-- Basic operational monitoring script
-- Country and basin configuration structure
-
----
-
-## Upgrade Guide
-
-### From Pre-release to 0.1.0
-
-1. **Install as package** (recommended):
-   ```bash
-   pip install -e .
-   ```
-
-2. **Validate your configs**:
-   ```bash
-   philflood validate --basin-dir ops/configs/basins
-   ```
-
-3. **Try the new CLI**:
-   ```bash
-   philflood monitor --basin-dir ops/configs/basins --output results.json
-   ```
-
-4. **Update automation scripts** (optional):
-   - Replace script paths with CLI commands
-   - Update output parsing for JSON format
-   - Add config validation to deployment pipeline
-
-5. **Run smoke tests**:
-   ```bash
-   python tests/test_smoke.py
-   ```
-
-**No breaking changes** - existing scripts continue to work!
+- **0.x series** (Current): CLIMADA integration development phase
+- **1.x series** (Future): Production deployment and operationalization
+- **2.x series** (Future): Full system integration with automated triggers
 
 ---
 
 ## Future Roadmap
 
-### Version 0.2.0 (Planned)
-- GloFAS API data fetching implementation
-- Complete ensemble processing in monitoring
-- Batch calibration for multiple basins
-- Email/SMS notification system
-- Unit tests for core modules
-
-### Version 0.3.0 (Planned)
-- Web dashboard for trigger status
-- Historical trigger performance tracking
-- API documentation (Sphinx)
-- Performance optimization
-
-### Version 1.0.0 (Planned)
-- Production-ready release
+### Version 1.0.0 (Target: Q2 2026)
+**Production-Ready Release**
+- Complete operational monitoring with automated triggers
+- Full CLIMADA integration for impact-based forecasting
 - Multi-country support
-- Full test coverage
-- Comprehensive documentation
+- Full test coverage (>80%)
+- Production deployment examples
 - Performance benchmarks
+
+### Version 2.0.0 (Target: Q4 2026)
+**Full System Integration**
+- CLIMADA-petals integration for population exposure modeling
+- Impact-based forecasting with automatic early action triggers
+- Real-time forecast ingestion from GloFAS API
+- Web dashboard for monitoring and visualization
+- REST API for external integration
+- Historical performance tracking and evaluation
 
 ---
 
-For detailed technical changes, see [docs/architecture_improvements.md](docs/architecture_improvements.md)
+For detailed technical documentation, see the `docs/` directory.

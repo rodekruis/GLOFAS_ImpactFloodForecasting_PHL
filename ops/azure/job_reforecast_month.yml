@@ -1,0 +1,109 @@
+# =============================================================================
+# Azure ML SDK v2 — Command Job: one month of GloFAS reforecast
+# =============================================================================
+#
+# Submit with:
+#   az ml job create --file ops/azure/job_reforecast_month.yml \
+#       --set inputs.year=2008 inputs.month=3 \
+#       --set inputs.grib_root.path=azureml://datastores/<store>/paths/<year>_03 \
+#       --set inputs.checkpoint_dir.path=azureml://datastores/<store>/paths/checkpoints \
+#       --set inputs.evt_params.path=azureml://datastores/<store>/paths/evt_pot_calibration.parquet \
+#       --set outputs.output_dir.path=azureml://datastores/<store>/paths/outputs/year=2008/month=03
+#
+# GRIB upload strategy (avoid storing 1 TB permanently):
+#   1. Upload one month's GRIB to Blob: azcopy copy "<local>/<Y>_<MM>" "https://<account>/<container>/<Y>_<MM>"
+#   2. Submit this job
+#   3. After job succeeds, delete from Blob: az storage blob delete-batch ...
+#
+# Required before first run:
+#   - Register a datastore pointing at your Azure Blob container
+#   - Run notebook Sections 0–6 locally to produce checkpoint artifacts
+#   - Upload checkpoint dir to Blob
+#   - Replace <store>, <account>, <container>, cpu-cluster with your values
+#
+# =============================================================================
+
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+
+# Repo root is the code asset — keeps relative imports working
+code: ../..
+
+command: >
+  pip install -e . --quiet &&
+  python calibration/scripts/run_reforecast_month.py
+  --year ${{inputs.year}}
+  --month ${{inputs.month}}
+  --grib-root ${{inputs.grib_root}}
+  --checkpoint-dir ${{inputs.checkpoint_dir}}
+  --evt-params ${{inputs.evt_params}}
+  --output-dir ${{outputs.output_dir}}
+
+inputs:
+  # Scalar parameters — override at submit time
+  year:
+    type: integer
+    default: 2008
+    description: "Year to process"
+
+  month:
+    type: integer
+    default: 1
+    description: "Month to process (1–12)"
+
+  # Data inputs — paths mounted read-only from Azure Blob
+  grib_root:
+    type: uri_folder
+    mode: ro_mount
+    description: >
+      Root dir for GRIB files. Script expects
+      {grib_root}/{year}/_staging/extract/{year}_{month:02d}/data.grib.
+      Upload one month at a time to avoid storing 1 TB simultaneously.
+
+  checkpoint_dir:
+    type: uri_folder
+    mode: ro_mount
+    description: >
+      Checkpoint artifacts from notebook Cell 19:
+      flood_maps_ev.nc, pop_ev.npy, admin_id_raster_ev.npy,
+      admin_id_to_name.json, support_cells_present.json, evt_params.parquet.
+
+  evt_params:
+    type: uri_file
+    mode: ro_mount
+    description: >
+      evt_pot_calibration.parquet from NB01. Overrides checkpoint copy.
+      Pass the same file used when producing the checkpoint artifacts.
+
+outputs:
+  output_dir:
+    type: uri_folder
+    mode: rw_mount
+    description: >
+      Monthly outputs:
+        event_registry_reforecast_candidates_raw_{Y}_{MM}.[csv|parquet]
+        event_registry_reforecast_library_{Y}_{MM}.[csv|parquet]
+        impacts_by_admin_{Y}_{MM}.[csv|parquet]
+
+environment:
+  # References the sibling conda spec.
+  # Register it once: az ml environment create --file ops/azure/aml_environment.yml
+  # Then reference by name+version here, or keep inline for portability.
+  conda_file: aml_conda.yml
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest
+
+# ── Compute ─────────────────────────────────────────────────────────────────
+# Replace with your registered compute target (cpu-cluster, Standard_D8s_v3, etc.)
+# Recommended: ≥16 GB RAM (flood_maps_ev + pop grids in memory during 7C)
+compute: azureml:cpu-cluster
+
+# ── Job metadata ─────────────────────────────────────────────────────────────
+display_name: reforecast-month
+description: >
+  PhilFlood NB04 reforecast worker.
+  Detects GloFAS flood events and computes population impact for one month.
+  Part of the NB04 impact catalogue pipeline.
+
+tags:
+  pipeline: philflood-nb04
+  step: reforecast-month

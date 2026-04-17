@@ -1,25 +1,11 @@
-# Core dependencies for PhilFlood IBF pipeline
+# PhilFlood - Impact-Based Flood Forecasting System
+# Core dependencies for EVT calibration and CLIMADA integration
 # Install with: pip install -r requirements.txt
 
-# Core
-numpy>=1.24
-pandas>=2.0
-xarray>=2023.1
-netCDF4>=1.6.5
-cftime>=1.6
-pyyaml>=6.0
-python-dateutil>=2.8.2
-scipy>=1.9
+# These 4 packages are CRITICAL and should not be modified
+# All other dependencies (numpy, pandas, xarray, netCDF4, etc.) are automatically installed by these
 
-# System monitoring
-psutil>=5.9
-
-# Data I/O
-pyarrow>=14.0
-
-# Geospatial
-geopandas>=0.14
-shapely>=2.0
-pyproj>=3.5
-pyogrio>=0.8
-rasterio>=1.3
+climada>=3.0.0          # Flood hazard modeling, centroids, impact calculation
+climada-petals>=1.0.0   # Regridding and flood depth interpolation
+ipywidgets>=7.6.0       # Interactive Jupyter notebook diagnostics
+pyextremes>=2.3.0       # Extreme Value Theory: POT/GPD calibration

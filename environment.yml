@@ -3,37 +3,21 @@ channels:
   - conda-forge
 dependencies:
   - python=3.11
-  # Core scientific computing
-  - numpy
-  - pandas
-  - scipy
-  - matplotlib
-  # Array/netCDF handling
-  - xarray
-  - netcdf4
-  - cftime
-  # Geospatial processing
+  # Core geohazard modeling framework
   - geopandas
   - rasterio
-  - shapely
-  - pyproj
-  - pyogrio
+  - xarray
+  - netcdf4
   # GRIB file processing (critical for GloFAS data)
   - cfgrib
   - eccodes
-  # Extreme value analysis (EVT/POT calibration)
-  - pyextremes
   # Jupyter notebook support
   - jupyter
   - notebook
   - ipykernel
   - ipywidgets
-  # System monitoring (optional but useful)
-  - psutil
-  # Utilities
-  - pyyaml
-  - python-dateutil
   # Package manager
   - pip
   - pip:
-      - -e . --no-deps
+      # PhilFlood project (installs climada, climada-petals, pyextremes + all dependencies)
+      - -e .
