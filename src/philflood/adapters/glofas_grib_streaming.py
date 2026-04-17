@@ -12,8 +12,8 @@ Key features:
 - Scales to country-level deployments (1000s of gauges)
 
 Architecture:
-    1. Extract each year → temp parquet file
-    2. Merge temp files → final per-gauge parquets
+    1. Extract each year -> temp parquet file
+    2. Merge temp files -> final per-gauge parquets
     3. Cleanup temp files
 
 Memory usage: Constant (only one year in memory at a time)
@@ -24,7 +24,7 @@ from __future__ import annotations
 import gc
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -44,16 +44,17 @@ def extract_year_to_temp_file(
     temp_dir: Path,
     cfgrib_index_dir: Path,
     discharge_var: Optional[str] = None,
+    verbose: bool = True,
 ) -> Path:
     """Extract one year of GRIB data and write immediately to temp file.
-    
+
     This function:
     1. Opens GRIB file for one year
     2. Extracts discharge for all gauge points
     3. Writes to parquet immediately
     4. Closes dataset and frees memory
     5. Returns path to temp file
-    
+
     Parameters
     ----------
     grib_item : GribInventoryItem
@@ -66,7 +67,7 @@ def extract_year_to_temp_file(
         cfgrib index directory
     discharge_var : Optional[str]
         Discharge variable name (None = auto-detect)
-        
+
     Returns
     -------
     Path
@@ -74,20 +75,20 @@ def extract_year_to_temp_file(
     """
     year = grib_item.year
     temp_file = temp_dir / f"temp_year_{year}.parquet"
-    
+
     # Skip if already extracted (resumption support)
     if temp_file.exists():
-        logger.info(f"  ↺ Year {year} already extracted (temp file exists)")
+        logger.info("  Year %s already extracted (temp file exists)", year)
         return temp_file
-    
+
     try:
         # Open GRIB for this year
-        logger.debug(f"  Opening GRIB for year {year}: {grib_item.grib_path}")
+        logger.debug("  Opening GRIB for year %s: %s", year, grib_item.grib_path)
         ds = open_grib_dataset(grib_item.grib_path, cfgrib_index_dir)
-        
+
         # Auto-detect discharge variable if not specified
         var = discharge_var or infer_discharge_var(ds)
-        
+
         # Extract discharge for all points (vectorized)
         df = extract_daily_discharge_for_points(
             ds,
@@ -96,21 +97,22 @@ def extract_year_to_temp_file(
             lat_col="lat",
             lon_col="lon",
             discharge_var=var,
+            verbose=verbose,
         )
-        
+
         # Close dataset immediately to free memory
         ds.close()
         del ds
         gc.collect()
-        
+
         # Write to temp file immediately
         df.to_parquet(temp_file, index=False, compression="snappy")
-        logger.debug(f"  ✓ Wrote {len(df)} records to {temp_file.name}")
-        
+        logger.debug("  Wrote %s records to %s", len(df), temp_file.name)
+
         return temp_file
-        
-    except Exception as e:
-        logger.error(f"  ✗ ERROR: Year {year} extraction failed: {e}")
+
+    except Exception as exc:
+        logger.error("  ERROR: Year %s extraction failed: %s", year, exc)
         # Clean up partial file if it exists
         if temp_file.exists():
             temp_file.unlink()
@@ -123,17 +125,17 @@ def merge_yearly_temps_to_gauge_files(
     output_dir: Path,
 ) -> Dict[str, pd.Series]:
     """Merge yearly temp files into per-gauge parquet files.
-    
+
     This function reads temp files one at a time, uses efficient groupby
     to split by gauge, and writes per-gauge files incrementally. Memory
     efficient because it processes one year at a time and writes
     immediately without accumulating data.
-    
+
     Performance characteristics:
-    - Time: O(N×G) file I/O operations where N=years, G=gauges
+    - Time: O(NxG) file I/O operations where N=years, G=gauges
     - Memory: O(max_year_size) - only one year in memory at a time
     - Trade-off: Slower due to repeated file I/O, but prevents memory crashes
-    
+
     Parameters
     ----------
     temp_files : List[Path]
@@ -142,44 +144,44 @@ def merge_yearly_temps_to_gauge_files(
         List of unique gauge IDs
     output_dir : Path
         Final output directory for gauge files
-        
+
     Returns
     -------
     Dict[str, pd.Series]
-        Dictionary mapping gauge_id → daily discharge Series
-        
+        Dictionary mapping gauge_id -> daily discharge Series
+
     Notes
     -----
     The finalization step loads each gauge's full dataset for sorting and
     deduplication, so individual gauges with very large datasets may still
     require significant memory.
     """
-    logger.info(f"📊 Merging {len(temp_files)} yearly files into {len(gauge_ids)} gauge files...")
-    
+    logger.info("Merging %s yearly files into %s gauge files...", len(temp_files), len(gauge_ids))
+
     # Convert to set for O(1) membership checks
     gauge_ids_set = set(gauge_ids)
-    
+
     # Track which gauges have received data
     gauges_with_data = set()
-    
+
     # Read each yearly temp file and append to per-gauge files incrementally
     for i, temp_file in enumerate(temp_files, 1):
-        logger.debug(f"  Reading temp file {i}/{len(temp_files)}: {temp_file.name}")
-        
+        logger.debug("  Reading temp file %s/%s: %s", i, len(temp_files), temp_file.name)
+
         try:
             df = pd.read_parquet(temp_file)
-            
+
             # Use groupby for efficient single-pass splitting by gauge
             for gid, gauge_df in df.groupby("virtual_gauge_id"):
                 # Only process gauges we care about (O(1) lookup)
                 if gid not in gauge_ids_set:
                     continue
-                
+
                 gauges_with_data.add(gid)
-                
+
                 # Extract just the columns we need
                 gauge_data = gauge_df[["date", "discharge_m3s"]].copy()
-                
+
                 # Append to per-gauge file incrementally
                 output_file = output_dir / f"{gid}.parquet"
                 try:
@@ -191,41 +193,41 @@ def merge_yearly_temps_to_gauge_files(
                     else:
                         # Create new file
                         gauge_data.to_parquet(output_file, index=False, compression="snappy")
-                except Exception as e:
-                    logger.error(f"  ✗ ERROR writing gauge file {gid}: {e}")
+                except Exception as exc:
+                    logger.error("  ERROR writing gauge file %s: %s", gid, exc)
                     # Remove corrupted file if it exists
                     if output_file.exists():
                         output_file.unlink()
                     raise
-            
+
             # Free memory immediately
             del df
             gc.collect()
-            
-        except Exception as e:
-            logger.error(f"  ✗ ERROR reading {temp_file.name}: {e}")
+
+        except Exception as exc:
+            logger.error("  ERROR reading %s: %s", temp_file.name, exc)
             continue
-    
+
     # Post-process: deduplicate, sort, and create Series dict
-    logger.info(f"  Finalizing {len(gauges_with_data)} gauge files...")
+    logger.info("  Finalizing %s gauge files...", len(gauges_with_data))
     series_by_gauge = {}
-    
+
     for gid in gauge_ids:
         if gid not in gauges_with_data:
-            logger.warning(f"  ⚠ No data for gauge {gid}")
+            logger.warning("  No data for gauge %s", gid)
             continue
-        
+
         try:
             # Read the accumulated file
             output_file = output_dir / f"{gid}.parquet"
             combined = pd.read_parquet(output_file)
-            
+
             # Sort and deduplicate
             combined = combined.sort_values("date").drop_duplicates(subset=["date"], keep="first")
-            
+
             # Overwrite with cleaned data
             combined.to_parquet(output_file, index=False, compression="snappy")
-            
+
             # Create Series for return value
             series = pd.Series(
                 combined["discharge_m3s"].values,
@@ -233,17 +235,23 @@ def merge_yearly_temps_to_gauge_files(
                 name="discharge_m3s",
             )
             series_by_gauge[gid] = series
-            
-        except Exception as e:
-            logger.error(f"  ✗ ERROR finalizing gauge {gid}: {e}")
+
+        except Exception as exc:
+            logger.error("  ERROR finalizing gauge %s: %s", gid, exc)
             # Remove corrupted file
             if output_file.exists():
                 output_file.unlink()
             continue
-        
-        logger.debug(f"  ✓ {gid}: {len(series)} days, {series.index.min().date()} to {series.index.max().date()}")
-    
-    logger.info(f"✓ Merge complete: {len(series_by_gauge)} gauges")
+
+        logger.debug(
+            "  %s: %s days, %s to %s",
+            gid,
+            len(series),
+            series.index.min().date(),
+            series.index.max().date(),
+        )
+
+    logger.info("Merge complete: %s gauges", len(series_by_gauge))
     return series_by_gauge
 
 
@@ -256,18 +264,20 @@ def load_or_build_gauge_timeseries_streaming(
     discharge_var: Optional[str] = None,
     selected_years: Optional[List[int]] = None,
     keep_temp_files: bool = False,
+    verbose: bool = True,
+    progress_cb: Optional[Callable[[int, int, str], None]] = None,
 ) -> Dict[str, pd.Series]:
     """Streaming extraction: process years sequentially, write immediately.
-    
+
     This is a drop-in replacement for load_or_build_gauge_timeseries() that
     uses streaming architecture instead of memory accumulation.
-    
+
     Benefits:
     - Constant memory usage (only one year in RAM)
     - Resumption support (skips already-extracted years)
     - Scales to 1000s of gauges
     - Works on cloud and local machines
-    
+
     Parameters
     ----------
     grib_inventory : List[GribInventoryItem]
@@ -285,33 +295,33 @@ def load_or_build_gauge_timeseries_streaming(
     selected_years : Optional[List[int]], optional
         Only process these years (for testing)
     keep_temp_files : bool, optional
-        If True, don't delete temp files after merge (for debugging)
-        
+        If True, do not delete temp files after merge (for debugging)
+
     Returns
     -------
     Dict[str, pd.Series]
-        Dictionary mapping gauge_id → daily discharge Series
+        Dictionary mapping gauge_id -> daily discharge Series
     """
-    logger.info("="*80)
-    logger.info("📥 STREAMING TIME SERIES EXTRACTION")
-    logger.info("="*80)
-    
+    logger.info("=" * 80)
+    logger.info("STREAMING TIME SERIES EXTRACTION")
+    logger.info("=" * 80)
+
     processed_timeseries_dir = Path(processed_timeseries_dir)
     processed_timeseries_dir.mkdir(parents=True, exist_ok=True)
     cfgrib_index_dir = Path(cfgrib_index_dir)
-    
+
     gauge_ids = points["virtual_gauge_id"].unique().tolist()
-    
+
     # Check if cached files already exist and are complete
     if not force:
-        logger.info(f"Checking for cached gauge files...")
-        cached = {}
-        missing = []
-        
+        logger.info("Checking for cached gauge files...")
+        cached: Dict[str, pd.Series] = {}
+        missing: List[str] = []
+
         grib_years = sorted(set(item.year for item in grib_inventory))
         expected_start = pd.Timestamp(year=grib_years[0], month=1, day=1) if grib_years else None
         expected_end = pd.Timestamp(year=grib_years[-1], month=12, day=31) if grib_years else None
-        
+
         for gid in gauge_ids:
             f = processed_timeseries_dir / f"{gid}.parquet"
             if f.exists():
@@ -319,7 +329,7 @@ def load_or_build_gauge_timeseries_streaming(
                     df = pd.read_parquet(f)
                     s = pd.Series(df["discharge_m3s"].values, index=pd.to_datetime(df["date"]))
                     s.name = "discharge_m3s"
-                    
+
                     # Validate coverage
                     if expected_start and expected_end:
                         cache_start = s.index.min()
@@ -330,43 +340,45 @@ def load_or_build_gauge_timeseries_streaming(
                     else:
                         cached[gid] = s
                         continue
-                except Exception as e:
+                except Exception as exc:
                     # If cached file is corrupt or has invalid data, treat as missing.
                     # This allows recovery by re-extracting the gauge data.
-                    logger.warning(f"Failed to read cached file for gauge {gid}: {e}")
+                    logger.warning("Failed to read cached file for gauge %s: %s", gid, exc)
             missing.append(gid)
-        
+
         if not missing:
-            logger.info(f"✓ All {len(cached)} gauges already cached with complete coverage")
+            logger.info("All %s gauges already cached with complete coverage", len(cached))
             return cached
-        else:
-            logger.info(f"  Already cached: {len(cached)}")
-            logger.info(f"  Need to extract: {len(missing)}")
+        logger.info("  Already cached: %s", len(cached))
+        logger.info("  Need to extract: %s", len(missing))
     else:
         logger.info("FORCE=True: Re-extracting all gauges")
         cached = {}
         missing = gauge_ids
-    
+
     # Filter inventory by selected_years if specified
     if selected_years:
         grib_inventory = [item for item in grib_inventory if item.year in selected_years]
-        logger.info(f"  Filtered to {len(selected_years)} selected years: {sorted(selected_years)}")
-    
-    logger.info(f"\nTotal gauges required:    {len(gauge_ids)}")
-    logger.info(f"Already cached:           {len(cached)}")
-    logger.info(f"Need to extract:          {len(missing)}")
-    logger.info(f"GRIBs to process:         {len(grib_inventory)}")
-    
+        logger.info("  Filtered to %s selected years: %s", len(selected_years), sorted(selected_years))
+
+    logger.info("\nTotal gauges required:    %s", len(gauge_ids))
+    logger.info("Already cached:           %s", len(cached))
+    logger.info("Need to extract:          %s", len(missing))
+    logger.info("GRIBs to process:         %s", len(grib_inventory))
+
     # Setup temp directory for yearly files
     temp_dir = processed_timeseries_dir / "_temp_streaming"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Temp directory:           {temp_dir}")
-    logger.info("="*80)
-    
+    logger.info("Temp directory:           %s", temp_dir)
+    logger.info("=" * 80)
+
     # STEP 1: Extract each year to temp file
-    temp_files = []
+    temp_files: List[Path] = []
     for i, grib_item in enumerate(grib_inventory, 1):
-        logger.info(f"[{i:2d}/{len(grib_inventory)}] Processing GRIB year {grib_item.year}...")
+        if progress_cb is not None:
+            progress_cb(i, len(grib_inventory), f"year {grib_item.year}")
+        if verbose:
+            logger.info("[%s/%s] Processing GRIB year %s...", i, len(grib_inventory), grib_item.year)
         try:
             temp_file = extract_year_to_temp_file(
                 grib_item,
@@ -374,18 +386,19 @@ def load_or_build_gauge_timeseries_streaming(
                 temp_dir,
                 cfgrib_index_dir,
                 discharge_var,
+                verbose=verbose,
             )
             temp_files.append(temp_file)
-            
+
             # Explicit garbage collection after each year
             gc.collect()
-            
-        except Exception as e:
-            logger.error(f"        ✗ ERROR: {e}")
+
+        except Exception as exc:
+            logger.error("        ERROR: %s", exc)
             continue
-    
-    logger.info(f"\n✓ Extracted {len(temp_files)} years to temp files")
-    
+
+    logger.info("\nExtracted %s years to temp files", len(temp_files))
+
     # STEP 2: Merge yearly temps into per-gauge files
     if not missing:
         # Nothing new to merge, return cached
@@ -396,24 +409,24 @@ def load_or_build_gauge_timeseries_streaming(
             gauge_ids,
             processed_timeseries_dir,
         )
-        
+
         # Combine with cached data if any
         series_by_gauge.update(cached)
-    
+
     # STEP 3: Cleanup temp files
     if not keep_temp_files:
-        logger.info(f"\n🧹 Cleaning up {len(temp_files)} temp files...")
+        logger.info("\nCleaning up %s temp files...", len(temp_files))
         for tf in temp_files:
             if tf.exists():
                 tf.unlink()
         if temp_dir.exists() and not any(temp_dir.iterdir()):
             temp_dir.rmdir()
-        logger.info("✓ Cleanup complete")
+        logger.info("Cleanup complete")
     else:
-        logger.info(f"\n  Keeping temp files for debugging: {temp_dir}")
-    
-    logger.info("="*80)
-    logger.info(f"✅ STREAMING EXTRACTION COMPLETE: {len(series_by_gauge)} gauges")
-    logger.info("="*80)
-    
+        logger.info("\nKeeping temp files for debugging: %s", temp_dir)
+
+    logger.info("=" * 80)
+    logger.info("STREAMING EXTRACTION COMPLETE: %s gauges", len(series_by_gauge))
+    logger.info("=" * 80)
+
     return series_by_gauge

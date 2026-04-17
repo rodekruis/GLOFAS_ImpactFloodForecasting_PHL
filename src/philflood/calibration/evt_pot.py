@@ -140,16 +140,31 @@ def pot_extract(
                 extraction_metadata=extraction_metadata or {},
             )
 
-        # Normalize extremes to a clean two-column DataFrame: date, discharge_m3s
+        # Normalize extremes to a clean two-column DataFrame: date, discharge_m3s.
+        # pyextremes typically returns a Series (index=event timestamps, values=discharge).
+        # Some versions return a DataFrame. In both cases we extract the DatetimeIndex
+        # directly from the source object — never from a freshly-constructed DataFrame
+        # whose index would be a RangeIndex (0, 1, 2…) that pd.to_datetime() would
+        # misinterpret as nanoseconds-since-epoch (→ bogus 1970-01-01 dates).
         if isinstance(extremes, pd.Series):
-            ev_series = extremes.copy()
-            ev_series.index = pd.to_datetime(ev_series.index)
-            ev = pd.DataFrame({"date": ev_series.index, "discharge_m3s": ev_series.values})
+            ev = pd.DataFrame({
+                "date": pd.to_datetime(extremes.index),
+                "discharge_m3s": extremes.values,
+            })
         else:
-            ev = extremes.copy()
-        ev.index = pd.to_datetime(ev.index)
-        discharge_col = "discharge_m3s" if "discharge_m3s" in ev.columns else ev.columns[0]
-        ev = pd.DataFrame({"date": ev.index, "discharge_m3s": ev[discharge_col].values})
+            discharge_col = "discharge_m3s" if "discharge_m3s" in extremes.columns else extremes.columns[0]
+            ev = pd.DataFrame({
+                "date": pd.to_datetime(extremes.index),
+                "discharge_m3s": extremes[discharge_col].values,
+            })
+
+        # Sanity-check: dates must be plausible (not nanosecond-epoch artefacts)
+        if len(ev) > 0 and ev["date"].dt.year.min() < 1950:
+            raise RuntimeError(
+                f"POT event dates appear corrupted (min year={ev['date'].dt.year.min()}). "
+                "pyextremes returned extremes without a proper DatetimeIndex — "
+                "check that the input discharge_series has a DatetimeIndex."
+            )
 
         ev = ev.sort_values("date")
 
@@ -405,12 +420,57 @@ def discharge_to_return_period_pot(
     return T_arr
 
 
+def gpd_gof_test(
+    exceedances: np.ndarray,
+    xi: float,
+    sigma: float,
+    alpha: float = 0.05,
+) -> tuple[float, bool]:
+    """Kolmogorov-Smirnov goodness-of-fit test for a fitted GPD.
+
+    Uses the probability integral transform (PIT): if X ~ GPD(ξ, σ), then
+    U = GPD_CDF(X; ξ, σ) ~ Uniform(0, 1). Tests U against Uniform via KS test.
+
+    Parameters
+    ----------
+    exceedances : np.ndarray
+        Positive exceedances above threshold (discharge - threshold).
+    xi : float
+        GPD shape parameter (EVT convention; scipy c = ξ).
+    sigma : float
+        GPD scale parameter (> 0).
+    alpha : float, optional
+        Significance level for pass/fail. Default 0.05.
+
+    Returns
+    -------
+    tuple[float, bool]
+        (p_value, gof_pass) where gof_pass = True means the GPD is a plausible fit.
+    """
+    if stats is None:
+        raise ImportError("scipy is required for gpd_gof_test")
+
+    exceedances = np.asarray(exceedances, dtype=float)
+    exceedances = exceedances[np.isfinite(exceedances) & (exceedances >= 0)]
+
+    if len(exceedances) < 5 or sigma <= 0:
+        return (np.nan, True)  # insufficient data: don't block on GoF
+
+    # PIT: transform exceedances to [0,1] via GPD CDF
+    # scipy genpareto: c = ξ (same convention)
+    pit = stats.genpareto.cdf(exceedances, c=xi, loc=0, scale=sigma)
+
+    # KS test against Uniform(0,1)
+    ks_stat, p_value = stats.kstest(pit, "uniform")
+    return (float(p_value), bool(p_value >= alpha))
+
+
 def bootstrap_pot_return_levels(
     exceedances: np.ndarray,
     threshold: float,
     lambda_u: float,
     return_periods: Union[list, np.ndarray],
-    n_bootstrap: int = 20,
+    n_bootstrap: int = 500,
     random_state: int = 42,
     tol_exponential: float = 1e-6,
 ) -> pd.DataFrame:
@@ -431,7 +491,7 @@ def bootstrap_pot_return_levels(
     return_periods : list or np.ndarray
         Return periods to compute (years), e.g., [2, 5, 10, 20, 50, 100, 200, 500, 1000].
     n_bootstrap : int, optional
-        Number of bootstrap iterations. Default 20.
+        Number of bootstrap iterations. Default 500 (sufficient for stable q05/q95 CIs).
     random_state : int, optional
         Random seed for reproducibility. Default 42.
     tol_exponential : float, optional

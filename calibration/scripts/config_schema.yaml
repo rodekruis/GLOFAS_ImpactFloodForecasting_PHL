@@ -1,0 +1,434 @@
+# Configuration Schema for Calibration Notebooks
+# 
+# This YAML defines the standardized structure for user configuration sections
+# across all calibration notebooks (01–04).
+#
+# Each notebook follows this pattern:
+#   Section 0.1: Imports & logging
+#   Section 0.2: User Configuration (EDIT THIS)
+#   Section 0.3: Auto-detection & path resolution
+#   Section 0.4: Validation & summary
+
+# ============================================================================
+# NOTEBOOK 01: evt_pot_calibration_workflow.ipynb
+# ============================================================================
+notebook_01:
+  purpose: "Discharge EVT/POT fitting per GloFAS cell"
+  output: "run_config.json (central artifact)"
+  
+  user_configuration:
+    # Section 0.2: Simple User Inputs
+    
+    # Analysis mode
+    ANALYZE_BY_MUNICIPALITY:
+      type: boolean
+      default: false
+      description: "True = analyze at city/town level; False = basin level"
+      
+    municipality_ids:
+      type: list[string]
+      default: []
+      description: "List of municipality IDs if ANALYZE_BY_MUNICIPALITY=True"
+      example: ["PHL001001", "PHL001002"]
+      
+    basin_config_file:
+      type: path
+      required_if: "ANALYZE_BY_MUNICIPALITY=False"
+      description: "Path to YAML file defining basin (relative to repo root)"
+      example: "ops/configs/basins/Cagayan_01.yaml"
+    
+    # Temporal
+    years_to_analyze:
+      type: list[int] | null
+      default: null
+      description: "Specific years to analyze; null = ALL years (recommended)"
+      example: [2010, 2011, 2012]
+    
+    # Metadata
+    run_name:
+      type: string
+      required: true
+      description: "Run identifier, used for output folder naming"
+      example: "2026-01-19_calib-test"
+      
+    analyst_name:
+      type: string
+      required: true
+      description: "Analyst initiating the run (recorded in decision log)"
+      example: "David"
+  
+  # Section 0.3: Advanced Settings
+  advanced_settings:
+    adm3_geojson:
+      type: path
+      description: "Path to ADM3 administrative boundaries (relative to repo)"
+      
+    hybas_l12_shp:
+      type: path
+      description: "Path to HydroBASINS shapefile (relative to repo)"
+      
+    glofas_grib_root:
+      type: path
+      description: "Path to GloFAS GRIB files (relative to repo)"
+      
+    USE_CELL_EXTRACTION:
+      type: boolean
+      default: true
+      description: "True = all cells; False = pour points only"
+      
+    run_length_days:
+      type: integer
+      default: 5
+      description: "Minimum event separation (days)"
+      
+    candidate_quantiles:
+      type: list[float]
+      description: "Range for POT threshold auto-selection"
+      example: [0.90, 0.91, 0.92, ..., 0.99]
+  
+  exported_files:
+    - "run_config.json"
+    - "evt_params.parquet"
+    - "timeseries/**/*.parquet"
+    - "diagnostics/"
+
+
+# ============================================================================
+# NOTEBOOK 02: HazardOnly_Workflow_v2.ipynb
+# ============================================================================
+notebook_02:
+  purpose: "Generate hazard (flood depth) maps using frozen discharge EVT + JRC data"
+  inputs: "run_config.json from NB01"
+  output: "Hazard TIFF/NetCDF files"
+  
+  user_configuration:
+    # Section 0.2: User Config
+    
+    AUTO_DETECT:
+      type: boolean
+      default: true
+      description: "Auto-load from most recent NB01 run"
+      
+    basin_id_input:
+      type: string | null
+      default: null
+      description: "Override auto-detected basin ID (optional)"
+      
+    run_tag_input:
+      type: string | null
+      default: null
+      description: "Override auto-detected run tag (optional)"
+      
+    APPLY_FLOPROS:
+      type: boolean
+      default: false
+      description: "Apply flood protection masking (FLOPROS)"
+      
+    REGRID_METHOD:
+      type: string
+      default: "bilinear"
+      enum: ["bilinear", "nearest"]
+      description: "Interpolation method for regridding"
+      
+    USE_RECLASSIFIED:
+      type: boolean
+      default: false
+      description: "Use depth_reclass.tif instead of depth.tif from JRC"
+  
+  # Section 0.3: System Resource Detection (automatic)
+  system_detection:
+    available_ram_gb:
+      automatic: true
+      description: "Detected from system"
+      
+    storage_type:
+      automatic: true
+      enum: ["SSD", "HDD"]
+      
+    low_ram_mode:
+      automatic: true
+      description: "Auto-enables if <8GB available"
+  
+  # Section 0.4–0.5: Auto-detection & Derived Paths
+  auto_detection:
+    strategy: "Load NB01 run_config.json -> extract basin_id, run_tag -> resolve paths"
+    
+    basin_id:
+      source: "run_config.json or input hint"
+      
+    run_tag:
+      source: "run_config.json or input hint"
+      
+    jrc_base_url:
+      default: "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/CEMS-GLOFAS/flood_hazard/"
+      
+    jrc_return_periods:
+      default: [10, 20, 50, 75, 100, 200, 500]
+
+
+# ============================================================================
+# NOTEBOOK 03: validation_notebook_FINAL.ipynb
+# ============================================================================
+notebook_03:
+  purpose: "Validate discharge EVT and hazard outputs against observation data"
+  inputs: "run_config.json from NB01"
+  output: "Validation metrics, dashboard"
+  
+  user_configuration:
+    # Section 0.2: Repo & Defaults
+    REPO_ROOT_MANUAL:
+      type: path | null
+      default: null
+      description: "Override auto-detected repo root (optional)"
+    
+    # Section 0.3: Auto-detection
+    AUTO_DETECT:
+      type: boolean
+      default: true
+      description: "Auto-load from most recent NB01 run"
+      
+    basin_id_hint:
+      type: string | null
+      default: null
+      
+    run_tag_hint:
+      type: string | null
+      default: null
+    
+    # Section 0.4: User Controls (Validation Parameters)
+    DECLUSTER_GAP_DAYS:
+      type: integer
+      default: 5
+      description: "Event clustering rule (days)"
+      
+    DISCHARGE_PAD_DAYS_BEFORE_EPISODE_START:
+      type: integer
+      default: 3
+      description: "Days to include before episode start"
+      
+    DEPTH_THRESHOLDS_FOR_METRICS:
+      type: list[float]
+      description: "Thresholds for confusion matrix"
+      example: [0.05, 0.10, 0.20, 0.50, 1.00]
+      
+    DASHBOARD_THRESHOLD_MIN:
+      type: float
+      default: 0.0
+      
+    DASHBOARD_THRESHOLD_MAX:
+      type: float
+      default: 3.0
+      
+    DASHBOARD_THRESHOLD_STEP:
+      type: float
+      default: 0.10
+      
+    ENABLE_FLOPROS_SCENARIOS:
+      type: boolean
+      default: true
+      
+    RUN_INTERNAL_DUMMY_TESTS:
+      type: boolean
+      default: false
+
+
+# ============================================================================
+# NOTEBOOK 04: ImpactCatalogue_ImpactEVT.ipynb (STANDARDIZED)
+# ============================================================================
+notebook_04:
+  purpose: "Build flood-impact event catalogue; fit impact EVT (POT/GPD)"
+  inputs: "run_config.json from NB01 (auto-discovered)"
+  output: "impact_catalogue_historical.csv, event_registry_with_impact_rp.csv"
+  
+  user_configuration:
+    # Section 0.2: Execution & Mode
+    
+    RUN_SELF_TEST:
+      type: boolean
+      default: false
+      description: "True = run end-to-end with mock datasets (for first run)"
+      
+    # AOI Selection
+    AOI_MODE:
+      type: string
+      required: true
+      default: "custom"
+      enum: ["adm3", "custom"]
+      description: "Choose area of interest selection mode"
+      
+    AOI_ADM3_IDS:
+      type: list[string]
+      default: []
+      description: "Admin unit IDs (required if AOI_MODE='adm3')"
+      example: ["PHL012345", "PHL012346"]
+      
+    AOI_CUSTOM_GEOJSON_PATH:
+      type: path | null
+      default: null
+      description: "Custom boundary polygon (required if AOI_MODE='custom')"
+    
+    # Manual Path Overrides (LEAVE AS None FOR AUTO-DETECT)
+    NB1_RUN_CONFIG_JSON:
+      type: path | null
+      default: null
+      description: "Explicit NB01 config path; None = auto-discover"
+      
+    ADMIN3_GEOJSON:
+      type: path | null
+      default: null
+      description: "Admin boundaries; None = auto-discover or use default"
+      
+    WORLDPOP_TIF:
+      type: path | null
+      default: null
+      description: "Population raster; None = auto-discover or use default"
+      
+    JRC_ROOT:
+      type: path | null
+      default: null
+      description: "JRC flood maps root; None = auto-discover or use default"
+    
+    # Optional: FLOPROS Protection
+    USE_FLOPROS:
+      type: boolean
+      default: false
+      description: "Apply flood protection masking"
+      
+    FLOPROS_VECTOR:
+      type: path | null
+      default: null
+      
+    FLOPROS_RP_FIELD:
+      type: string
+      default: "MerL_Riv"
+    
+    # Event Detection Settings (Historical)
+    INDEX_STAT:
+      type: string
+      default: "rp95"
+      description: "Discharge statistic for event detection"
+      
+    DECLUSTER_DAYS:
+      type: integer
+      default: 5
+      description: "Event declustering window (days)"
+      
+    EVENT_WINDOW_DAYS:
+      type: integer
+      default: 2
+      description: "Peak ±N days for event window"
+      
+    POT_Q_CANDIDATES:
+      type: numpy.ndarray
+      example: [0.90, 0.91, ..., 0.99]
+      description: "Quantiles for POT threshold auto-selection"
+      
+    MIN_EVENTS:
+      type: integer
+      default: 20
+      
+    MAX_EVENTS:
+      type: integer
+      default: 200
+    
+    # Impact Thresholds
+    DEPTH_THRESHOLDS_M:
+      type: list[float]
+      default: [0.0, 0.1, 0.2, 0.3, 0.5]
+      description: "Depth thresholds for affected population aggregation"
+      
+    SEVERITY_DEPTH_FOR_EVT_M:
+      type: float
+      default: 0.1
+      description: "Depth threshold for severity metric (used in EVT fitting)"
+    
+    # Impact EVT Fitting (Historical Only)
+    IMPACT_POT_Q_CANDIDATES:
+      type: numpy.ndarray
+      example: [0.70, 0.75, ..., 0.95]
+      
+    IMPACT_MIN_EXCEEDANCES:
+      type: integer
+      default: 25
+    
+    # Reforecast Tail Mining (Optional)
+    REFORECAST_LOCAL_DIR:
+      type: path | null
+      default: null
+      
+    REFORECAST_LEAD_DAYS:
+      type: integer
+      default: 15
+      
+    MAX_TAIL_EVENTS:
+      type: integer
+      default: 50
+    
+    # Outputs
+    OUTPUT_DIR:
+      type: path
+      default: "./outputs_nb4_5"
+      
+    EXPORT_EXCEL:
+      type: boolean
+      default: false
+      
+    RP_CAP:
+      type: integer
+      default: 500
+      description: "Maximum return period for capping"
+  
+  # Section 0.3: Auto-detection & Path Resolution
+  auto_detection:
+    strategy: |
+      1. Try load NB1_RUN_CONFIG_JSON (if explicit path provided)
+      2. Search data/processed/calibration/*/*/run_config.json (auto-select latest)
+      3. If found, extract: evt_params_parquet, timeseries_dir, etc.
+      4. Fallback to standard paths if not in config
+      5. Allow manual override of any path (set to non-None value)
+    
+    path_resolution:
+      admin3_geojson:
+        source: ["NB01 config", "data/raw/vectors/admin/phl_cod_ab/phl_adm3.geojson"]
+        
+      worldpop_tif:
+        source: ["NB01 config", "data/raw/worldpop/phl_pop_2025_CN_100m_R2025A_v1.tif"]
+        
+      jrc_root:
+        source: ["NB01 config", "data/raw/jrc_flood_maps"]
+        
+      evt_params_parquet:
+        source: ["NB01 config", "data/processed/calibration/{basin_id}/{run_tag}/evt_params.parquet"]
+        
+      timeseries_dir:
+        source: ["NB01 config", "data/processed/calibration/{basin_id}/{run_tag}/timeseries"]
+
+# ============================================================================
+# SHARED UTILITIES (philflood.utils)
+# ============================================================================
+shared_utilities:
+  find_repo_root:
+    description: "Locate repo root by searching for markers (src/, .git, pyproject.toml, ...)"
+    
+  load_run_config:
+    description: "Load NB01 run_config.json with auto-discovery"
+    parameters:
+      run_config_path: "Explicit path (optional)"
+      search_processed_root: "Directory to search (optional)"
+      auto_select_latest: "Select most recent if multiple found"
+    
+  get_nb_output_paths:
+    description: "Derive standard output paths from run_tag and basin_id"
+    returns: "Dict with evt_params_parquet, timeseries_dir, output_dir, run_config_json"
+    
+  validate_data_paths:
+    description: "Check if paths exist; raise or warn on missing"
+    
+  print_config_summary:
+    description: "Print formatted configuration status to console"
+    
+  load_adm3_gdf:
+    description: "Load ADM3 GeoJSON with standardized column names"
+    
+  resolve_aoi_boundary:
+    description: "Resolve AOI geometry from mode (basin/municipality) and inputs"

@@ -93,9 +93,7 @@ print('REPO_ROOT:', REPO_ROOT)
 print('SRC_PATH :', SRC_PATH)
 
 # Now imports from src/
-from philflood.config.basin import load_basin_config
-from philflood.geo.worldpop import population_weighted_centroid
-from philflood.geo.aoi import build_municipality_aoi
+from philflood.domain.config import load_basin_config
 from philflood.geo.hydrobasins import read_vector, select_context_polygon, select_l12_by_geometry, get_id_field
 from philflood.adapters.glofas_grib_v4 import (
     discover_grib_year_files,
@@ -115,7 +113,7 @@ print('Core imports OK')
 Set paths and mode switches below. The notebook will validate and **fail fast** if anything is missing.
 
 **Locked data paths (examples):**
-- WorldPop raster: `C:\\pipelines\\GLOFAS_ImpactFloodForecasting_PHL\\data\\raw\\worldpop\\PHL\\phl_pop_2025_CN_100m_R2025A_v1.tif`
+- ~~WorldPop raster~~ (deprecated as of Feb 2026; population weighting removed)
 - ADM3 municipalities: `C:\\pipelines\\GLOFAS_ImpactFloodForecasting_PHL\\data\\raw\\vectors\\admin\\phl_cod_ab\\phl_adm3.geojson`
 - HydroBASINS L12 polygons: `C:\\pipelines\\GLOFAS_ImpactFloodForecasting_PHL\\data\\raw\\vectors\\hydrobasins\\australasia\\hybas_au_lev01-12_v1c\\hybas_au_lev12_v1c.shp`
 - HydroBASINS L12 pour points: `C:\\pipelines\\GLOFAS_ImpactFloodForecasting_PHL\\data\\raw\\vectors\\hydrobasins\\australasia\\hybas_pour_lev01-12_v1_shp\\hybas_pour_lev12_v1.shp`
@@ -133,14 +131,14 @@ adm3_ids = [
     # Example: "PHLxxxx". Must match adm3_id in the ADM3 GeoJSON.
     # Fill with one or more municipalities.
 ]
-aoi_buffer_km = 5
+# NOTE: aoi_buffer_km deprecated as of Feb 2026 (population centroid approach removed)
 
 # --- Context basin mode inputs (legacy YAML) ---
 basin_cfg_relpath = r"ops\configs\basins\Cagayan_01.yaml"  # repo-relative (legacy)
 context_select_mode = "within"  # within|intersects
 
 # --- Locked data paths (set these to your local repo paths) ---
-worldpop_raster = Path(r"C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL\data\raw\worldpop\PHL\phl_pop_2025_CN_100m_R2025A_v1.tif")
+# NOTE: worldpop_raster is deprecated (population weighting removed as of Feb 2026)
 adm3_geojson = Path(r"C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL\data\raw\vectors\admin\phl_cod_ab\phl_adm3.geojson")
 hybas_l12_shp = Path(r"C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL\data\raw\vectors\hydrobasins\australasia\hybas_au_lev01-12_v1c\hybas_au_lev12_v1c.shp")
 hybas_pour_l12_shp = Path(r"C:\pipelines\GLOFAS_ImpactFloodForecasting_PHL\data\raw\vectors\hydrobasins\australasia\hybas_pour_lev01-12_v1_shp\hybas_pour_lev12_v1.shp")
@@ -162,7 +160,6 @@ processed_root = REPO_ROOT / "data" / "processed"
 
 # Print resolved paths for transparency
 print("USE_MUNI_AOI:", USE_MUNI_AOI)
-print("worldpop_raster:", worldpop_raster)
 print("adm3_geojson  :", adm3_geojson)
 print("hybas_l12_shp :", hybas_l12_shp)
 print("pour points   :", hybas_pour_l12_shp)
@@ -181,7 +178,7 @@ We stop early if any required file is missing. This prevents silent downstream f
     if not p.exists():
         raise FileNotFoundError(f"{label} not found: {p}")
 
-_assert_exists(worldpop_raster, "WorldPop raster")
+# NOTE: worldpop_raster validation removed (population weighting deprecated as of Feb 2026)
 _assert_exists(adm3_geojson, "ADM3 GeoJSON")
 _assert_exists(hybas_l12_shp, "HydroBASINS L12 polygons")
 _assert_exists(hybas_pour_l12_shp, "HydroBASINS L12 pour points")
@@ -247,11 +244,10 @@ if not USE_MUNI_AOI:
 
 Two modes:
 
-### Mode A: Municipality AOI
+### Mode A: Municipality (Direct Intersection)
 - For each selected municipality:
-  - population-weighted centroid (WorldPop)
-  - AOI = geodesic buffer(5 km) clipped to municipality polygon
-  - select all intersecting L12 polygons
+  - Select all L12 polygons that spatially intersect the municipality polygon
+  - No population weighting or buffering (removed as of Feb 2026)
 
 ### Mode B: Context basin
 - Select all L12 polygons inside the context basin geometry
@@ -272,19 +268,14 @@ if USE_MUNI_AOI:
             raise ValueError(f"Expected exactly 1 municipality for adm3_id={mid}, found {len(muni)}")
         muni_geom = muni.geometry.values[0]
 
-        # Population-weighted centroid (fails loudly if no population)
-        wc = population_weighted_centroid(muni_geom, worldpop_raster)
-        aoi = build_municipality_aoi(muni_geom, wc.point, buffer_km=aoi_buffer_km)
-
-        aoi_geoms.append(aoi.aoi_polygon)
-
-        sel = select_l12_by_geometry(l12_gdf, aoi.aoi_polygon, mode="intersects")
+        # Direct L12 selection: all L12s that spatially intersect the municipality polygon
+        sel = select_l12_by_geometry(l12_gdf, muni_geom, mode="intersects")
         muni_aoi_records.append({
             "adm3_id": mid,
-            "centroid_lon": float(wc.point.x),
-            "centroid_lat": float(wc.point.y),
-            "total_population": float(wc.total_population),
-            "valid_pixel_count": int(wc.valid_pixel_count),
+            "centroid_lon": None,  # No longer computed; using direct intersection
+            "centroid_lat": None,  # No longer computed; using direct intersection
+            "total_population": None,  # Population weighting removed
+            "valid_pixel_count": None,  # Population weighting removed
             "n_l12_selected": int(len(sel)),
             "l12_ids": sel[l12_id_field].astype(int).tolist(),
         })

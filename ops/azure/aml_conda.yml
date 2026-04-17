@@ -1,0 +1,66 @@
+# =============================================================================
+# Azure ML compute environment — PhilFlood NB04 reforecast worker
+# =============================================================================
+#
+# Stripped-down conda spec for Azure ML compute (no Jupyter / notebook stack).
+# Keeps the full geospatial + GRIB + CLIMADA dependencies needed by
+# calibration/scripts/run_reforecast_month.py.
+#
+# Register once in your AML workspace:
+#   az ml environment create \
+#     --name philflood-aml \
+#     --version 1 \
+#     --conda-file ops/azure/aml_conda.yml \
+#     --image mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest
+#
+# Then reference by name in job_reforecast_month.yml:
+#   environment: azureml:philflood-aml@latest
+#
+# Notes:
+#   - pygrib + eccodes must come from conda-forge (pip build often fails)
+#   - climada + climada-petals are pip-only (not on conda-forge)
+#   - philflood is installed as an editable package from the repo root
+#     via the job `command` prefix: `pip install -e . &&`
+#     OR mount the repo and pass PYTHONPATH=/mnt/repo/src
+# =============================================================================
+
+name: philflood-aml
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # ── Python ──────────────────────────────────────────────────────────────
+  - python=3.11
+
+  # ── Core scientific stack ────────────────────────────────────────────────
+  - numpy>=1.24
+  - pandas>=2.0
+  - scipy>=1.10
+  - xarray>=2023.1
+  - netcdf4>=1.6
+
+  # ── Geospatial ───────────────────────────────────────────────────────────
+  - geopandas>=0.13
+  - rasterio>=1.3
+  - shapely>=2.0
+  - pyproj>=3.5
+
+  # ── GRIB reading (must be conda-forge — pip builds often break eccodes) ──
+  - pygrib>=2.1
+  - eccodes>=2.31
+
+  # ── Utilities ────────────────────────────────────────────────────────────
+  - pyarrow>=12.0      # parquet support for pandas
+  - python-json-logger>=2.0  # structured logging (used by philflood.ops)
+
+  # ── pip-only packages ────────────────────────────────────────────────────
+  - pip:
+    - climada>=3.0.0
+    - climada-petals>=1.0.0
+    - pyextremes>=2.3.0
+    # philflood package: installed at job start via `pip install -e .`
+    # (the job command prefix should be: pip install -e . && python calibration/scripts/...)
+    # Alternatively: uncomment below if using a versioned wheel
+    # - philflood>=0.3.0

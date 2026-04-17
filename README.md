@@ -1,6 +1,8 @@
 # GLOFAS Philippines Flood Forecasting
 
-> **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are currently using placeholder implementations and will be completed in v1.0 (Q2 2026). See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
+> **🎯 v0.3.0 Now Humanized (Feb 2026)**: Calibration Notebook 1 has been redesigned for non-technical operations personnel. Quick Start guide, simplified inputs (4 fields), input validation, and progress checkpoints all built in. See [Phase B Improvements](docs/user-guides/notebook01-calibration-guide.md#whats-new-in-v030) for details.
+
+> **⚠️ Development Status**: This project is in active development (v0.3.0 → v1.0.0). The calibration pipeline and statistical modeling are fully functional. CLIMADA hazard integration and population impact calculations are implemented. See [CHANGELOG.md](CHANGELOG.md) for the full roadmap.
 
 An open-source early action flood trigger system for the Philippines using Global Flood Awareness System (GloFAS) forecasts and Extreme Value Theory (EVT) statistical modeling.
 
@@ -46,20 +48,18 @@ GLOFAS_ImpactFloodForecasting_PHL/
 │   ├── notebooks/            # Interactive EVT calibration workflow
 │   └── scripts/              # Batch calibration and config generation
 ├── src/philflood/            # Reusable package code
-│   ├── adapters/            # GRIB extraction, CLIMADA interfaces, data loading
+│   ├── adapters/            # GRIB extraction (glofas_grib_v4.py + optimized streaming)
 │   ├── calibration/         # EVT model fitting and statistical calibration
 │   ├── cli.py               # Command-line interface entry point
-│   ├── config/              # YAML configuration schema and loading
-│   ├── domain/              # Core business logic and domain entities
+│   ├── domain/              # Core business logic, dataclasses, YAML config I/O
 │   ├── geo/                 # Spatial operations (HydroBASINS, WorldPop)
 │   ├── models/              # Statistical and impact models
 │   │   ├── ev/             # Extreme value (EVT/POT) models
-│   │   ├── impact/         # Population impact calculations
-│   │   └── risk/           # Risk metrics (AEP/OEP)
-│   ├── ops/                 # Operational monitoring and validation
-│   ├── pipelines/           # Orchestration workflows (monitoring, validation)
+│   │   └── impact/         # Population impact calculations (partial v0.3)
+│   ├── ops/                 # Operational utilities (logging, run_config auto-discovery)
+│   ├── pipelines/           # Orchestration (monitoring.py stub — v1.0 target)
 │   ├── qc/                  # Quality control checks
-│   └── utils/               # Memory management, logging utilities
+│   └── utils/               # Memory management, event detection, path helpers
 ├── ops/                      # Production configuration and monitoring
 │   ├── configs/            # Basin-specific YAML parameters
 │   └── pipeline/           # Scheduled monitoring scripts
@@ -68,26 +68,34 @@ GLOFAS_ImpactFloodForecasting_PHL/
 └── docs/                     # Comprehensive guides
 ```
 
-For detailed explanation of the module architecture, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed explanation of the module architecture, see [docs/technical/ARCHITECTURE.md](docs/technical/ARCHITECTURE.md).
 
-## Quick Links
+## Quick Navigation
 
-- **Getting Started**: [Quickstart Guide](docs/quickstart.md) – Installation and first run (15 minutes)
-- **Production Deployment**: [Deployment Guide](docs/deployment.md) – Scheduled monitoring, Docker, cloud options
-- **Methods & Theory**: [Methods Overview](docs/methods_onepager.md) – EVT approach, data flow, references
+**For Humanitarian Officers & Operations Teams:**
+- 🚀 [Calibrating a new basin?](docs/user-guides/notebook01-calibration-guide.md) – Start here for step-by-step instructions
+- 🔍 [Operations dashboard guide](docs/user-guides/notebook02-hazard-guide.md) – How to generate hazard maps
+- ✅ [Validation & QC guide](docs/user-guides/notebook03-validation-guide.md) – Quality control checklist
+- ❓ [FAQ & Troubleshooting](docs/getting-started/FAQ.md) – Common issues and solutions
+
+**For Technical Teams & Developers:**
+- 📖 [Full Documentation Hub](docs/README.md) – Navigation by role, reading order, all guides
+- 🚀 [Setup & Installation](docs/getting-started/quickstart.md) – Dev environment setup (15 minutes)
+- 🔨 [Contributing Guide](docs/contributing/CONTRIBUTING.md) – Development workflow and code standards
+- 🔧 [Architecture & Design](docs/technical/ARCHITECTURE.md) – System design and module structure
+- 📊 [Methods & Theory](docs/technical/methods-overview.md) – EVT approach, data flow, references
+- ⚙️ [Deployment Guide](docs/operations/deployment.md) – Production setup and scheduling
 
 ## How to Contribute
 
-1. **Calibration improvements**: Add new basins or refine EVT threshold selection in `calibration/notebooks/`
-2. **New data sources**: Extend adapters in `src/philflood/adapters/` for alternative forecast systems
-3. **Operational enhancements**: Improve monitoring logic in `src/philflood/ops/`
-4. **Documentation**: Clarify methodology or add deployment examples in `docs/`
+Contributions are welcome! See [Contributing Guide](docs/contributing/CONTRIBUTING.md) for development workflow, code standards, and testing requirements.
 
-Please ensure all contributions:
-- Include unit tests in `tests/`
-- Follow the existing code structure (separate calibration and operations layers)
-- Update relevant YAML configs and documentation
-- Are validated with `philflood validate` before submission
+**Ways to contribute:**
+1. **Add new basins**: Follow calibration notebook workflow to add basin configurations
+2. **Improve statistical methods**: Refine EVT threshold selection and diagnostic tools
+3. **Extend data sources**: Add new adapters for alternative forecast systems
+4. **Documentation**: Clarify methodology, add examples, or improve guides
+5. **Bug reports & ideas**: Open GitHub issues for bugs or feature requests
 
 ## Installation
 
@@ -133,7 +141,7 @@ pip install -r requirements.txt
 **Solution:** Use the streaming adapter designed for large datasets
 - The system automatically uses memory-efficient streaming extraction
 - If manual processing, use `src/philflood/adapters/glofas_grib_v4_optimized.py`
-- See [Methods Overview](docs/methods_onepager.md#streaming-grib-extraction-architecture) for details
+- See [Methods Overview](docs/technical/methods-overview.md#streaming-grib-extraction-architecture) for details
 
 ### Return Period Mismatches (Only 1 of 8 in Output)
 

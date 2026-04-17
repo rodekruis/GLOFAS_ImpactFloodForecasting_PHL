@@ -4,8 +4,8 @@
 basin_id: Cagayan_01
 country_iso3: PHL
 # HydroBASINS level and ID must be set according to your basin delineation.
-hydrobasins_level: 7
-hydrobasins_id: 5070113080 
+hydrobasins_level: 6
+hydrobasins_id: 5060030230
 
 # List of GloFAS station or grid cell identifiers associated with this basin.
 # During calibration you should update this list to include all relevant point IDs.
@@ -29,7 +29,7 @@ vulnerability:
   depth_threshold_m: 0.3
   impact_fraction: 1.0
 
-trigger:
-  impact_threshold_people: 100000
-  probability_threshold: 0.3
-  max_lead_time_days: 10
+# trigger: section intentionally omitted.
+# Operational trigger thresholds are NOT configured here — they are derived
+# from the risk profiles in data/processed/Riskprofiles/oep_curves_all_units.json
+# (produced by NB05). See docs/operations/trigger-pipeline-handover.md.

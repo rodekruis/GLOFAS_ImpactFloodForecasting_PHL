@@ -64,6 +64,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - ✅ Consolidation implemented (single source of truth)
 - ✅ Existing test suite covers correct function
 
+### New Modular Utilities & Notebook 4 Refactor
+
+**Added reusable modules:**
+
+- `src/philflood/utils/event_detection.py` provides `peak_pick()` and `auto_select_threshold()` for declustering and POT threshold selection. These functions were previously defined in multiple notebooks.
+- `src/philflood/geo/interpolation.py` contains `linear_interp_depth_from_rp()` and `regrid_rp_to_grid()` for return‑period interpolation and inverse‑distance weighting (IDW) regridding. The new `regrid_rp_to_grid()` replaces the bespoke `regrid_rp_to_jrc_grid()` used in Notebook 4.
+- `src/philflood/models/impact/impact_evt.py` defines the `ImpactGPD` dataclass along with `fit_gpd_pot()` and `impact_to_return_period()` for fitting a Poisson–GPD model to impact severity data.
+- `src/philflood/models/impact/population_exposure.py` implements `aggregate_affected_population()` to rasterise administrative boundaries and compute affected population per depth threshold.
+
+**Notebook 4–5 refactor:**
+
+- Inserted import statements in Section 0 to pull in the modular utilities above, eliminating duplicated helper functions.
+- Renamed local helper functions (e.g., `peak_pick`, `auto_select_threshold`, `linear_interp_depth_from_rp`, `aggregate_affected_population`, `fit_gpd_pot`, `impact_to_return_period`) with an `_unused` suffix to avoid shadowing the imported implementations.
+- Renamed the self‑test regridding helper to `regrid_rp_to_jrc_grid_unused` and replaced calls with the generic `regrid_rp_to_grid()` which now takes `rp_cell.to_numpy()`, `meta`, `pop_arr` and `pop_transform`.
+- Updated self‑test code to call `regrid_rp_to_grid()` and the new `linear_interp_depth_from_rp()` from the interpolation module.
+
+**Repository clean‑up:**
+
+- Removed duplicate modules that were inadvertently created under the top‑level `src/philflood` directory. The authoritative package is now only under `repo/GLOFAS_ImpactFloodForecasting_PHL/src/philflood`.
+- Ensured that notebooks and code reference the shared library rather than redefining functions, paving the way for a future calibration/monitoring pipeline.
+
+These changes reduce code duplication across notebooks, simplify maintenance, and prepare the project for automation.  Practitioners can now rely on a single source of truth for key algorithms and more easily understand how notebooks map onto the library.
+
 ---
 
 ## [0.3.0] - February 2, 2026
