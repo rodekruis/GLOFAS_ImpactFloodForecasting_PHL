@@ -135,7 +135,10 @@ def auto_select_threshold(
     if s.empty:
         raise ValueError("Time series is empty after removing NaN values.")
 
-    q_values = [float(q) for q in q_candidates]
+    try:
+        q_values = [float(q) for q in q_candidates]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("q_candidates must contain only numeric quantiles in [0, 1].") from exc
     if not q_values:
         raise ValueError("q_candidates must contain at least one quantile in [0, 1].")
 

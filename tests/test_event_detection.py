@@ -19,7 +19,9 @@ class TestAutoSelectThreshold(unittest.TestCase):
         cls.series = pd.Series(values, index=dates)
 
     def test_empty_candidates_raises(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            ValueError, r"q_candidates must contain at least one quantile in \[0, 1\]\."
+        ):
             auto_select_threshold(self.series, [], decluster_days=3, min_events=2, max_events=20)
 
     def test_out_of_range_candidates_raise(self):
@@ -33,9 +35,15 @@ class TestAutoSelectThreshold(unittest.TestCase):
             )
 
     def test_nan_candidates_raise(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, r"must be finite quantiles in \[0, 1\]"):
             auto_select_threshold(
                 self.series, [0.90, float("nan")], decluster_days=3, min_events=2, max_events=20
+            )
+
+    def test_non_numeric_candidates_raise(self):
+        with self.assertRaisesRegex(ValueError, r"must contain only numeric quantiles"):
+            auto_select_threshold(
+                self.series, ["0.90", "not-a-number"], decluster_days=3, min_events=2, max_events=20
             )
 
     def test_valid_candidates_still_work(self):
@@ -43,6 +51,8 @@ class TestAutoSelectThreshold(unittest.TestCase):
             self.series, [0.90, 0.95, 0.99], decluster_days=3, min_events=2, max_events=20
         )
         self.assertTrue(np.isfinite(threshold))
+        self.assertGreaterEqual(threshold, float(self.series.min()))
+        self.assertLessEqual(threshold, float(self.series.max()))
 
 
 if __name__ == "__main__":
