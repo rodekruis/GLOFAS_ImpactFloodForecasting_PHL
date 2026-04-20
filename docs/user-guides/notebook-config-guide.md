@@ -354,4 +354,4 @@ The `run_config.json` file exported by NB01 contains:
 - [Notebook 01 Calibration Guide](notebook01-calibration-guide.md)
 - [Notebook 02 Hazard Guide](notebook02-hazard-guide.md)
 - [Notebook 03 Validation Guide](notebook03-validation-guide.md)
-- [Architecture Documentation](technical/ARCHITECTURE.md)
+- [Architecture Documentation](../technical/ARCHITECTURE.md)

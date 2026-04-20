@@ -2,32 +2,41 @@
 
 Module-level API documentation for PhilFlood.
 
-**Status**: v0.3.0 implementation. Full docstring extraction in progress.
+**Status**: v0.3.1 — this page lists the real public functions as they exist in `src/philflood/`. Full autodoc (pdoc3/Sphinx) is not yet set up.
 
 ---
 
-## Using the API in Your Code
+## Correct Import Paths
 
 ```python
-# Example: Extract and calibrate discharge data
+# Adapters — data extraction
+from philflood.adapters.glofas_grib_v4 import extract_daily_discharge_for_points
 from philflood.adapters.glofas_grib_v4_optimized import extract_timeseries_streaming
-from philflood.calibration.evt_pot import fit_gpd_from_exceedances
-from philflood.config import load_basin_config
 
-# Load basin configuration
-config = load_basin_config("ops/configs/basins/Cagayan_01.yaml")
-
-# Stream GRIB data
-ts = extract_timeseries_streaming(
-    grib_file="discharge_data.grib",
-    point_coords=[(config['aoi_bbox'][1], config['aoi_bbox'][0])]
+# Calibration — EVT/POT fitting
+from philflood.calibration.evt_pot import (
+    fit_gpd_to_pot,
+    bootstrap_pot_return_levels,
+    return_period_to_discharge_pot,
+    discharge_to_return_period_pot,
+    gpd_gof_test,
 )
 
-# Fit bootstrap return levels
-return_levels = fit_gpd_from_exceedances(
-    ts.values, 
-    threshold=config['evt_parameters']['threshold_m3s']
+# Threshold selection (separate module from calibration)
+from philflood.models.ev.threshold_selection import (
+    auto_select_threshold_pot,
+    compute_mrl,
 )
+
+# Domain — configuration
+from philflood.domain.config import load_basin_config
+from philflood.ops.config import load_run_config
+
+# Impact models
+from philflood.models.impact.population_exposure import aggregate_affected_population
+
+# Operational pipeline
+from philflood.pipelines.monitoring import TriggerDecision, run_monitoring
 ```
 
 ---
@@ -35,206 +44,161 @@ return_levels = fit_gpd_from_exceedances(
 ## Core Modules
 
 ### adapters/
-**Data extraction and transformation from external sources.**
+**Data extraction from external sources.**
 
-- `glofas_grib_v4_optimized.py` - Streaming GRIB file extraction
-  - `extract_timeseries_streaming()` - Memory-efficient year-by-year discharge extraction
-  - Returns: pandas.Series or xarray.DataArray
+- `glofas_grib_v4.py` — Standard GRIB extraction
+  - `extract_daily_discharge_for_points()` — Extract discharge for a list of GloFAS cell IDs
 
-- (Planned) `climada_river.py` - CLIMADA hazard integration
+- `glofas_grib_v4_optimized.py` — Low-memory streaming variant (94% RAM reduction vs standard)
+  - `extract_timeseries_streaming()` — Year-by-year streaming extraction
+
+> Legacy adapters are in `adapters/_archive/` — deprecated since v0.3.0, do not import from there.
 
 ### calibration/
-**Extreme Value Theory calibration workflows.**
+**Extreme Value Theory calibration.**
 
-- `evt_pot.py` - Peaks Over Threshold calibration
-  - `fit_gpd_from_exceedances()` - Fit distribution to threshold exceedances
-  - `calculate_return_levels_bootstrap()` - Generate return periods with uncertainty
-  - `estimate_evt_threshold()` - Auto-detect optimal threshold from MRL plot
+- `evt_pot.py` — Peaks Over Threshold calibration
+  - `fit_gpd_to_pot()` — Fit GPD to POT exceedances; returns `POTResult`
+  - `bootstrap_pot_return_levels()` — Bootstrap CIs for return levels
+  - `return_period_to_discharge_pot()` — RP → discharge using GPD formula
+  - `discharge_to_return_period_pot()` — Discharge → RP using GPD formula
+  - `gpd_gof_test()` — KS goodness-of-fit test on PIT residuals
+  - `pot_extract()` — Extract POT exceedances from a time series
 
-### models/
-**Core domain models and calculations.**
+### models/ev/
+**Extreme value threshold selection.**
 
-#### models/ev/
-- `gpd_estimator.py` - Generalized Pareto Distribution
-  - `fit_gpd()` - MLE parameter estimation
-  - `gdp_cdf()`, `gpd_pdf()` - Distribution functions
-  - `return_period_to_discharge()`, `discharge_to_return_period()` - Conversion formulas
+- `threshold_selection.py` — Threshold diagnostics and auto-selection
+  - `auto_select_threshold_pot()` — 3-tier stability-based threshold selection
+  - `compute_mrl()` — Mean residual life plot values
+  - `plot_parameter_stability()` — Diagnostic plots
 
-#### models/impact/
-- (Planned) Impact calculation models for Notebook 2+
-- CLIMADA Hazard → Exposure → Impact workflow
+### models/impact/
+**Population exposure calculations (partial in v0.3).**
 
-#### models/risk/
-- (Planned) Risk aggregation for multi-basin operations
+- `population_exposure.py`
+  - `aggregate_affected_population()` — Intersect flood depth raster + WorldPop to count people affected per admin unit
 
-### config/
-**Configuration loading and validation.**
-
-- `load_basin_config()` - Load and validate YAML basin configuration
-- `validate_config()` - Check YAML schema compliance
-- `BasinConfig` (dataclass) - Schema definition
+- `impact_evt.py`
+  - `impact_to_return_period()` — Map impact (people affected) → RP using EVT2 fit
 
 ### domain/
-**Domain entities (business logic independent of frameworks).**
+**Configuration entities.**
 
-- `Basin` (dataclass) - Watershed configuration and metadata
-- `CalibrationMetadata` - EVT calibration results storage
-
-### geo/
-**Spatial operations for coordinates and boundaries.**
-
-- `reproject_to_wgs84()` - Convert to EPSG:4326
-- `get_basin_centroid()` - Calculate center point
-- `buffer_bbox()` - Expand boundary box
-
-### pipelines/
-**Orchestration of multi-step workflows.**
-
-- (Partial) `monitoring.py` - Operational alert generation
-- (Planned) `validation.py` - QC checks for production outputs
+- `basin.py` — Canonical dataclasses: `BasinConfig`, `EVTConfig`, `VulnerabilityConfig`, `TriggerConfig`
+- `config.py` — YAML deserialization
+  - `load_basin_config(path)` — Load and validate basin YAML → `BasinConfig`
 
 ### ops/
-**Operational deployment and CLI.**
+**Runtime configuration and logging.**
 
-- `cli.py` - Command-line interface
-  - `monitor` - Run monitoring for basin(s)
-  - `validate` - QC configuration and data
+- `config.py`
+  - `load_run_config()` — Auto-discover NB01 `run_config.json`; see [Ops Config Reference](../ops-config-reference.md) for full usage
+- `logging_config.py`
+  - `get_logger(__name__)` — Structured JSON logger for production; human-readable for dev
 
-### qc/
-**Quality control and verification utilities.**
+### pipelines/
+**Orchestration.**
 
-- `validate_output.py` - Check output file integrity
-- `compare_versions.py` - Compare calibration outputs
+- `monitoring.py`
+  - `TriggerDecision` (dataclass) — Output struct with fields: `basin_id`, `issue_date`, `probability_exceed`, `expected_people`, `triggered`
+  - `run_monitoring()` — **Stub** — raises `NotImplementedError` until v1.0
 
 ### utils/
-**General utilities (logging, file I/O, etc.).**
+**Shared utilities.**
+
+- `event_detection.py` — `peak_pick()` — declustering for independent-event extraction
+- `memory_utils.py` — Memory profiling helpers
+- `paths.py` — Filesystem path utilities
+
+### geo/
+**Spatial operations.**
+
+- HydroBASINS watershed extraction, WorldPop raster joins, coordinate reprojection
 
 ---
 
-## Configuration YAML Schema
+## Basin Configuration YAML Schema
+
+See `ops/configs/basins/example_basin.yaml` for the full annotated template. Key fields:
 
 ```yaml
-# Example: ops/configs/basins/my_basin.yaml
-basin_id: "Cagayan_01"
-basin_name: "Cagayan Basin"
-country: "PHL"
+basin_id: Cagayan_01
+country_iso3: PHL
+hydrobasins_level: 6
+hydrobasins_id: 4060906180
+glofas_point_ids:
+  - PHL_12345
 
-aoi_bbox: [16.0, 121.0, 19.0, 123.0]  # [min_lat, min_lon, max_lat, max_lon]
-calibration_mode: "basin"  # or "municipality" for gridded impacts
+evt:
+  method: POT-GPD
+  threshold_m3s: 1500.0
+  run_length_days: 5
+  gpd_shape_xi: -0.15
+  gpd_scale_sigma: 250.0
+  event_rate_per_year: 2.5
 
-glofas_point_id: "PHL_12345"  # From GloFAS documentation
+vulnerability:
+  depth_threshold_m: 0.3
+  impact_fraction: 1.0
 
-evt_parameters:
-  threshold_m3s: 1500.0              # POT threshold
-  shape_xi: -0.15                    # GPD shape parameter
-  scale_sigma: 250.0                 # GPD scale parameter
-  annual_exceedances: 2.5            # Expected events per year
-
-return_periods: [2, 5, 10, 20, 50, 100, 200, 500]  # Years
-
-hazard_output_dir: "data/processed/climada_hazard/Cagayan_01/"
+# trigger: section intentionally omitted — thresholds come from
+# data/processed/Riskprofiles/oep_curves_all_units.json (NB05 output)
 ```
 
 ---
 
-## Data Structures
+## TriggerDecision Output
 
-### Basin Configuration
+`TriggerDecision` is the current v0.3 stub output struct. It will be extended in v1.0 to carry per-unit, per-tier results.
+
 ```python
-{
-  'basin_id': str,
-  'aoi_bbox': tuple[4],  # (lat_min, lon_min, lat_max, lon_max)
-  'glofas_point_id': str,
-  'evt_parameters': {
-    'threshold_m3s': float,
-    'shape_xi': float,
-    'scale_sigma': float,
-    'annual_exceedances': float
-  },
-  'return_periods': list[int]
-}
+@dataclass
+class TriggerDecision:
+    basin_id: str
+    issue_date: date
+    probability_exceed: float
+    expected_people: float
+    triggered: bool
+
+    def to_dict(self) -> Dict[str, object]: ...
 ```
 
-### Calibration Output
-```python
-{
-  'return_levels': xarray.DataArray,  # (return_period, bootstrap)
-  'parameters': {
-    'shape': float,
-    'scale': float,
-    'loc': float  # Threshold
-  },
-  'goodness_of_fit': {
-    'ks_statistic': float,
-    'anderson_darling': float
-  }
-}
-```
-
-### Operational Output (JSON)
-```json
-{
-  "basin_id": "Cagayan_01",
-  "forecast_date": "2024-12-15T12:00:00Z",
-  "alarms": [
-    {
-      "return_period": 20,
-      "probability": 0.15,
-      "status": "alert"
-    }
-  ],
-  "output_path": "data/ops/outputs/2024-12-15/"
-}
-```
+See [Trigger Pipeline Handover](../../operations/trigger-pipeline-handover.md) for the v1.0 output design (per ADM3/ADM2/watershed, per tier T1/T2/T3).
 
 ---
 
-## Development Status
+## Module Status
 
-| Module | Status | v0.3.0 | v1.0.0 |
-|---|---|---|---|
-| adapters/glofas_grib_v4_optimized | ✅ Full | ✓ | ✓ |
-| calibration/evt_pot | ✅ Full | ✓ | ✓ |
-| models/ev | ✅ Full | ✓ | ✓ |
-| config | ✅ Full | ✓ | ✓ |
-| domain | ✅ Full | ✓ | ✓ |
-| geo | ✅ Full | ✓ | ✓ |
-| ops/cli | ✅ Full | ✓ | ✓ |
-| qc/validate_output | 🟡 Partial | ✓ | ✓ |
-| adapters/climada_river | 📋 Planned | - | ✓ |
-| models/impact | 📋 Planned | - | ✓ |
-| models/risk | 📋 Planned | - | ✓ |
-| pipelines/monitoring | 🟡 Skeleton | ✓ | ✓ |
-| ops/rest_api | 📋 Planned | - | ✓ |
+| Module | Status | Notes |
+|---|---|---|
+| `adapters/glofas_grib_v4_optimized` | ✅ Full | Primary for large datasets |
+| `calibration/evt_pot` | ✅ Full | GoF tests + bootstrap CIs |
+| `models/ev/threshold_selection` | ✅ Full | 3-tier stability + MRL + GoF |
+| `domain/basin` + `domain/config` | ✅ Full | Canonical config dataclasses |
+| `ops/config` | ✅ Full | `load_run_config()` auto-discovery |
+| `models/impact/population_exposure` | 🟡 Partial | Raster intersection works; CLIMADA full integration v1.0 |
+| `models/impact/impact_evt` | 🟡 Partial | EVT2 fit and RP conversion working |
+| `geo/` | ✅ Full | HydroBASINS + WorldPop joins |
+| `pipelines/monitoring` | 🔴 Stub | `run_monitoring()` raises `NotImplementedError` |
 
 ---
 
-## Building from Source
+## Building Full API Docs
 
-### Extract Full Docstrings
 ```bash
-cd src/philflood
+# Install pdoc3 if not present
+pip install pdoc3
 
-# Generate API documentation
-pdoc3 --html --output-dir ../../docs/technical/api-reference/ \
-  adapters calibration models config domain geo pipelines ops qc utils
+# Generate HTML API docs
+pdoc3 --html --output-dir docs/technical/api-reference/ \
+  src/philflood
 ```
-
-### Generate from Notebook Examples
-See [Notebook 1 Calibration Guide](../../user-guides/notebook01-calibration-guide.md) and [Notebook 2 Hazard Guide](../../user-guides/notebook02-hazard-guide.md) for practical API usage examples.
-
----
-
-## Testing the API
-
-See [TESTING.md](../../contributing/TESTING.md) for:
-- Unit test patterns for API methods
-- Integration test examples
-- Mock fixtures for external dependencies (GRIB data, CLIMADA)
 
 ---
 
 **Related Documentation**:
 - [ARCHITECTURE.md](../ARCHITECTURE.md) - Module organization and data flows
 - [Methods Overview](../methods-overview.md) - Scientific basis and formulas
+- [Ops Config Reference](../ops-config-reference.md) - `load_run_config()` full usage
 - [Contributing Guide](../../contributing/CONTRIBUTING.md) - Code style and development workflow

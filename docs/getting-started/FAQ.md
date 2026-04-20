@@ -72,7 +72,7 @@ See [methods-overview.md](../technical/methods-overview.md) for details.
 - **EVT** (Extreme Value Theory): General statistical approach for modeling rare events
 - **POT** (Peaks Over Threshold): Specific EVT method using a threshold. PhilFlood uses POT.
 
-See [GLOSSARY.md](#glossary) and [methods-overview.md](../technical/methods-overview.md) for details.
+See [GLOSSARY.md](../technical/GLOSSARY.md) and [methods-overview.md](../technical/methods-overview.md) for details.
 
 ### Q: How do I select a POT threshold?
 
@@ -160,7 +160,7 @@ See Notebook 1 Section 1 for configuration. Notebook 2 auto-detects which was us
 - Check system logs for crashes (killed by OS)
 - Consider processing year ranges separately
 
-See [Notebook 1 Section 4 notes](../user-guides/calibration.md) for memory tuning.
+See [Notebook 1 Calibration Guide](../user-guides/notebook01-calibration-guide.md) for memory tuning.
 
 ---
 

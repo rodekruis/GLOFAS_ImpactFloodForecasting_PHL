@@ -84,7 +84,7 @@ Shared infrastructure code:
 **Key files:**
 - `memory_utils.py` - Memory profiling and optimization helpers
 - `paths.py` - Common filesystem and path utilities
-- `event_detection.py` - `peak_pick()`, `auto_select_threshold()` — declustering and independent-event extraction
+- `event_detection.py` - `peak_pick()` — declustering and independent-event extraction
 
 #### **`cli.py`** - Command-Line Interface
 Main entry point for the `philflood` command. Only `monitor` is implemented:
@@ -197,8 +197,8 @@ See [CHANGELOG.md](../../CHANGELOG.md) for detailed roadmap.
 # Correct module imports
 from philflood.adapters.glofas_grib_v4 import extract_daily_discharge_for_points
 from philflood.adapters.glofas_grib_v4_optimized import extract_timeseries_streaming
-from philflood.calibration.evt_pot import calibrate_pot_model
-from philflood.models.ev.threshold_selection import auto_select_threshold, compute_mrl
+from philflood.calibration.evt_pot import fit_gpd_to_pot, bootstrap_pot_return_levels
+from philflood.models.ev.threshold_selection import auto_select_threshold_pot, compute_mrl
 from philflood.models.impact.impact_evt import impact_to_return_period
 from philflood.domain.config import load_basin_config
 from philflood.ops.config import load_run_config

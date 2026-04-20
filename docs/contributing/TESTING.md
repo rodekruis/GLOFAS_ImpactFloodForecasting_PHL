@@ -63,24 +63,23 @@ pytest tests/ --cov=philflood --cov-report=term-missing
 # tests/test_models_ev.py
 import pytest
 import pandas as pd
-from philflood.models.ev.peaks_over_threshold import fit_gpd
+from philflood.models.ev.threshold_selection import auto_select_threshold_pot
 
-class TestGPDFitting:
-    """Tests for Generalized Pareto Distribution fitting."""
+class TestThresholdSelection:
+    """Tests for POT threshold selection."""
     
     def setup_method(self):
         """Create test fixtures before each test."""
-        self.sample_data = pd.Series([1, 2, 3, 5, 8, 13])
+        self.sample_data = pd.Series([1, 2, 3, 5, 8, 13, 21, 34, 55, 89])
         
-    def test_fit_gpd_basic(self):
-        """Test basic GPD parameter estimation."""
-        params = fit_gpd(self.sample_data, threshold=2.0)
+    def test_auto_select_threshold_basic(self):
+        """Test that threshold selection returns a positive value."""
+        threshold = auto_select_threshold_pot(self.sample_data)
         
-        assert 'shape' in params
-        assert 'scale' in params
-        assert params['shape'] is not None
+        assert threshold is not None
+        assert threshold > 0
         
-    def test_fit_gpd_threshold_validation(self):
+    def test_auto_select_threshold_validation(self):
         """Test that threshold must be reasonable."""
         with pytest.raises(ValueError, match="Threshold"):
             fit_gpd(self.sample_data, threshold=100.0)  # > all data

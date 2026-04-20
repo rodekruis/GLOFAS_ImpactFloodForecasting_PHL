@@ -46,28 +46,24 @@ We follow **PEP 8** with these specific practices:
 
 **Example function**:
 ```python
-def calibrate_pot_model(
-    discharge_data: pd.DataFrame,
-    threshold_quantile: float = 0.9
-) -> Dict[str, float]:
-    """Calibrate POT/GPD model from discharge time series.
-    
-    Fits a Generalized Pareto Distribution (GPD) to peaks
-    exceeding the specified quantile threshold.
-    
+def fit_gpd_to_pot(
+    discharge: pd.Series,
+    threshold_m3s: float,
+    r: str = "5D",
+) -> POTResult:
+    """Fit a GPD to peaks over threshold from a discharge time series.
+
     Args:
-        discharge_data: TimeSeriesDataframe with discharge (m³/s).
-        threshold_quantile: Quantile for POT threshold (0.9 = 90th percentile).
-        
+        discharge: Hourly or daily discharge (m³/s).
+        threshold_m3s: POT threshold value (m³/s).
+        r: Minimum separation between independent peaks (pandas offset).
+
     Returns:
-        Dictionary with fitted parameters:
-        - 'threshold': POT threshold value (m³/s)
-        - 'scale': GPD scale parameter (σ)
-        - 'shape': GPD shape parameter (ξ)
-        - 'exceedances_per_year': Mean annual exceedance rate (λ)
-        
+        POTResult with fitted GPD parameters (xi, sigma, lam) and
+        the extracted exceedances.
+
     Raises:
-        ValueError: If discharge_data has < 100 valid observations.
+        ValueError: If fewer than 10 exceedances are found.
     """
     # Implementation...
 ```
@@ -109,7 +105,7 @@ Keep commits focused and logically distinct:
 ```bash
 # ✅ Good
 git commit -m "Add POT threshold validation in evt_pot.py"
-git commit -m "Update docstring for calibrate_pot_model()"
+git commit -m "Update docstring for fit_gpd_to_pot()"
 
 # ❌ Avoid
 git commit -m "Fix calibration, update docs, refactor utils"
@@ -172,7 +168,7 @@ from philflood.calibration import select_threshold_interactively
 threshold = select_threshold_interactively(discharge_data)
 \`\`\`
 
-See [Calibration Guide](../user-guides/calibration.md) for details.
+See [Notebook 1 Calibration Guide](../user-guides/notebook01-calibration-guide.md) for details.
 ```
 
 ## Pull Request Process

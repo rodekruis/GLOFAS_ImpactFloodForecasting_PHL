@@ -33,7 +33,7 @@ Welcome to the PhilFlood documentation! This hub guides you to the right resourc
 ---
 
 ### 🔧 **Operators & System Admins** → Operations
-- [Deployment Guide](operations/deployment.md) - Scheduled monitoring, Docker, cloud deployment
+- [Deployment Guide](operations/deployment.md) - **Not yet implemented** — placeholder for when `run_monitoring()` is built
 - [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) - Architecture, reusable modules, and implementation checklist for automating the trigger
 - [Troubleshooting](user-guides/troubleshooting.md) - Operational issues and solutions
 
@@ -46,6 +46,7 @@ Welcome to the PhilFlood documentation! This hub guides you to the right resourc
 - [Contributing Guide](contributing/CONTRIBUTING.md) - Development setup, PR process, code standards
 - [Testing Guide](contributing/TESTING.md) - How to run tests, coverage expectations, test patterns
 - [API Reference](technical/api-reference/index.md) - Public module documentation
+- [Ops Config Reference](technical/ops-config-reference.md) - `load_run_config()` usage and auto-discovery
 - [Methods & Theory](technical/methods-overview.md) - Statistical foundations (EVT, POT, GPD)
 - [Glossary](technical/GLOSSARY.md) - Technical term definitions
 
@@ -70,23 +71,21 @@ docs/
 │   └── troubleshooting.md
 │
 ├── operations/                        # For operators
-│   ├── deployment.md                  # Scheduling, Docker, cloud
+│   ├── deployment.md                  # Placeholder — not yet implemented
 │   └── trigger-pipeline-handover.md  # Trigger automation guide
 │
 ├── technical/                         # For developers
 │   ├── ARCHITECTURE.md                # Module design (current)
 │   ├── methods-overview.md            # Statistical approach
 │   ├── notebook02-section4-optimization.md  # NB02 performance tuning
+│   ├── ops-config-reference.md        # load_run_config() usage and auto-discovery
 │   ├── GLOSSARY.md                    # Technical terms
 │   └── api-reference/                 # Code API docs
 │       └── index.md
 │
-├── contributing/                      # For contributors
-│   ├── CONTRIBUTING.md                # Code standards, PR process
-│   └── TESTING.md                     # Testing procedures
-│
-└── archive/                           # Historical docs
-    └── VERIFICATION_CHECKLIST_v0.3.0.md
+└── contributing/                      # For contributors
+    ├── CONTRIBUTING.md                # Code standards, PR process
+    └── TESTING.md                     # Testing procedures
 ```
 
 ---
@@ -163,7 +162,7 @@ All notebooks auto-detect the latest NB01 output via `philflood.ops.config.load_
 2. Know the basin geometry (HydroBASINS ID or shapefiles)
 3. Follow [Quick Start Guide](getting-started/quickstart.md)
 4. Run NB01–NB05 using the notebook guides above
-5. Deploy using [Deployment Guide](operations/deployment.md)
+5. Implement `run_monitoring()` (see [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md)), then deploy
 
 ### "I want to automate the trigger"
 1. Read [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) — full guide
@@ -207,7 +206,7 @@ All notebooks auto-detect the latest NB01 output via `philflood.ops.config.load_
 
 ### Trigger & Operations
 - [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) - Automation guide
-- [Deployment Guide](operations/deployment.md) - All scheduling options
+- [Deployment Guide](operations/deployment.md) - Placeholder (not yet implemented)
 - [FAQ Operational Section](getting-started/FAQ.md#operational-monitoring) - Monitoring questions
 
 ### Development & Contributing
@@ -229,9 +228,9 @@ All notebooks auto-detect the latest NB01 output via `philflood.ops.config.load_
 7. [Notebook 3 Validation Guide](user-guides/notebook03-validation-guide.md) (20 min)
 8. Run NB03–NB07
 
-### For Operators
-1. [Deployment Guide](operations/deployment.md) (20 min)
-2. [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) (30 min)
+### For Operators (Phuoc)
+1. [Trigger Pipeline Handover](operations/trigger-pipeline-handover.md) (30 min) — start here
+2. [Deployment Guide](operations/deployment.md) (5 min) — stub; fill in once `run_monitoring()` is built
 3. [Troubleshooting](user-guides/troubleshooting.md) (15 min)
 4. Review `ops/configs/basins/` example configs (10 min)
 

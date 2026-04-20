@@ -222,7 +222,7 @@ philflood validate ops/configs/basins/your_basin.yaml
 - Check all data in EPSG:4326
 - Verify return period NetCDF structure
 - Inspect intermediate files: `xr.open_dataset(...)`
-- Reference: [Notebook 2 Refactoring](../technical/notebook02-refactoring.md)
+- Reference: [Notebook 2 Section 4 Optimization](../technical/notebook02-section4-optimization.md)
 
 ---
 
@@ -290,7 +290,7 @@ pip install climada[petals]>=3.0.0
    ```python
    GFM_VALIDATION_ROOT = Path("data/raw/glofas/GFM")  # Adjust path
    ```
-3. See [GFM Data Guide](gfm-data-guide.md) for format requirements
+3. See [GFM Data Guide](../getting-started/gfm-data-guide.md) for format requirements
 
 ### "Output directory not writable"
 **Cause**: Permissions issue on output destination  
@@ -327,7 +327,7 @@ chmod 755 -R data/processed/validation/
    ```python
    # See code for custom date format handling
    ```
-4. See [GFM Data Guide](gfm-data-guide.md) for naming conventions
+4. See [GFM Data Guide](../getting-started/gfm-data-guide.md) for naming conventions
 
 ### "Only X% of gauges have timeseries data"
 **Cause**: Some discharge files missing or incomplete  
@@ -460,8 +460,8 @@ from philflood.config import load_basin_config
 cfg = load_basin_config("ops/configs/basins/my_basin.yaml")
 
 # Test EVT fitting
-from philflood.calibration.evt_pot import fit_gpd_from_exceedances
-params = fit_gpd_from_exceedances(your_data, threshold=1500)
+from philflood.calibration.evt_pot import fit_gpd_to_pot
+result = fit_gpd_to_pot(your_data, threshold_m3s=1500)
 ```
 
 ---
