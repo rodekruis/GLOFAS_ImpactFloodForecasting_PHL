@@ -25,7 +25,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-Claude.md
+CLAUDE.md
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -199,4 +199,4 @@ run_full_impact_pipeline_body.txt
 *copy.ipynb
 Untitled*.ipynb
 calibration/notebooks/cell2_temp.py
-calibration/notebooks/PET0.ESMF_LogFile
+calibration\notebooks\PET0.ESMF_LogFile
