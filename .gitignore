@@ -199,4 +199,4 @@ run_full_impact_pipeline_body.txt
 *copy.ipynb
 Untitled*.ipynb
 calibration/notebooks/cell2_temp.py
-calibration\notebooks\PET0.ESMF_LogFile
+calibration/notebooks/PET0.ESMF_LogFile
