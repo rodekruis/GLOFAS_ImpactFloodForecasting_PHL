@@ -83,7 +83,7 @@ GloFAS has a native grid resolution of ~5 km. Small rivers and headwater basins 
 
 - **OS**: Linux, macOS, or Windows (WSL strongly recommended on Windows for GRIB handling)
 - **RAM**: 2 GB minimum; 16 GB recommended for large basins
-- **Disk**: ~50 GB free (GloFAS GRIB files alone are ~12 GB for a country-level bounding box)
+- **Disk**: ~5 GB free (GloFAS GRIB files alone are ~12 GB for a country-level bounding box)
 - **Python**: 3.10–3.12
 
 ### Conda environment (required)
