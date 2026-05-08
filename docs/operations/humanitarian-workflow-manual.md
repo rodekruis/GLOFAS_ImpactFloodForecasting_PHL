@@ -644,7 +644,7 @@ NB06 requires `watershed_oep_curve.json` from NB05 to classify event severity. R
 
 ## Part 10 — Contributor Roadmap
 
-The following tasks are needed to make this workflow fully simplified and country-agnostic. Each is described with enough context to start working independently.
+The following tasks are suggested to fully simplify and make this workflow country-agnostic. Each is described with enough context to start working independently.
 
 ---
 
@@ -708,11 +708,10 @@ from philflood.models.impact.impact_evt import impact_to_return_period
 **Why**: The current NB06 is an event viewer that requires the historical event registry and named event classification. For humanitarian scenario planning, you want fixed-RP maps regardless of what events happened historically.
 
 **How to build**:
-- Load JRC RP maps (from NB02 CLIMADA hazard HDF5 or intermediate TIFFs)
-- For RP in [2, 5, 10]: extract flood depth grid, overlay with WorldPop, compute exposed population per admin unit
-- Render interactive Folium map for each RP; export as HTML
+- Load JRC RP maps (from NB02 CLIMADA hazard HDF5 or intermediate TIFFs) hazard space.
+- Dependency on `watershed_oep_curve.json` since this is the impact space.
+- Create shapefiles and rasters for post-analysis. Viewer is nice to keep for those who only care about results.
 - Export admin-unit table: `{adm_id, adm_name, rp2_exposed, rp5_exposed, rp10_exposed}`
-- No dependency on `watershed_oep_curve.json` (unless severity labels needed)
 
 **Files to create**: `calibration/notebooks/06H_ScenarioMaps_Humanitarian.ipynb`
 
