@@ -28,12 +28,14 @@ Version: v0.3.0 | Last updated: 2026-05-07
 This manual describes how to produce **impact-based flood risk profiles** for humanitarian early-action planning using the PhilFlood pipeline. The output is a set of population exposure estimates at return periods RP2, RP5, and RP10 — the statistical thresholds used for Moderate Watch, High Alert, and Very High Activation decisions respectively.
 
 This manual targets two audiences:
+
 - **Operators** — analysts and GIS specialists running the workflow for a new country or basin
 - **Contributors** — developers extending or simplifying the pipeline (see [Part 10](#part-10--contributor-roadmap))
 
 ### What this workflow produces
 
 By the end of the pipeline you will have:
+
 1. A calibrated statistical flood model per river basin (EVT1: Generalized Pareto Distribution on discharge)
 2. Spatial flood depth maps at 8 return periods (from JRC Global Flood Maps)
 3. A historical event impact catalog (people affected per flood event)
@@ -54,6 +56,7 @@ The full PhilFlood pipeline also includes a **reforecast library** (NB04 Section
 These limitations are not caveats — they are structural constraints of the methodology. Read them before deploying thresholds operationally.
 
 **Fluvial flooding only.** The model uses GloFAS river discharge as its input signal. It detects and characterizes riverine (fluvial) flooding. It does **not** capture:
+
 - Pluvial flooding (surface water runoff from intense rainfall, often urban)
 - Coastal flooding (storm surge, sea-level rise)
 - Flash floods in small, fast-response catchments not represented in GloFAS
@@ -61,6 +64,7 @@ These limitations are not caveats — they are structural constraints of the met
 GloFAS has a native grid resolution of ~5 km. Small rivers and headwater basins may not be well-represented. In operational use, the model will miss flash flood events and give no signal for purely pluvial events.
 
 **Historical record length.** The statistical model (GPD) requires sufficient extreme events to estimate the tail reliably. Rules of thumb:
+
 - Fewer than 20 years of data → return period estimates above RP10 are highly uncertain
 - Fewer than 20 flood events above the calibration threshold → EVT2 fitting is unreliable and may fail to tier 3 (fallback)
 - Wide bootstrap confidence intervals (CV > 0.30) in NB01 output are a warning sign
@@ -109,12 +113,14 @@ pip install -r requirements-dev.txt
 
 ### External accounts (all free)
 
-| Service | Purpose | Registration |
-|---------|---------|--------------|
-| ECMWF CEMS EWDS | GloFAS historical download + JRC tiles | https://ewds.climate.copernicus.eu/ |
-| WorldPop | Population raster download | https://hub.worldpop.org/ |
-| HydroSHEDS | Watershed boundary shapefiles | https://www.hydrosheds.org/ |
-| OCHA HDX | Administrative boundaries | https://data.humdata.org/ |
+
+| Service         | Purpose                                | Registration                                                               |
+| --------------- | -------------------------------------- | -------------------------------------------------------------------------- |
+| ECMWF CEMS EWDS | GloFAS historical download + JRC tiles | [https://ewds.climate.copernicus.eu/](https://ewds.climate.copernicus.eu/) |
+| WorldPop        | Population raster download             | [https://hub.worldpop.org/](https://hub.worldpop.org/)                     |
+| HydroSHEDS      | Watershed boundary shapefiles          | [https://www.hydrosheds.org/](https://www.hydrosheds.org/)                 |
+| OCHA HDX        | Administrative boundaries              | [https://data.humdata.org/](https://data.humdata.org/)                     |
+
 
 ### CDS API credentials
 
@@ -142,6 +148,7 @@ The pipeline requires four external datasets. This section explains where each c
 **What is downloaded**: 43 years (1980–2022) of daily GloFAS v4.0 reanalysis river discharge. This is the primary hydrological record used to calibrate the EVT1 model.
 
 **Dataset details**:
+
 - Dataset ID: `cems-glofas-historical`
 - System version: `version_4_0`
 - Product type: `consolidated` (quality-controlled daily means; use this, not `intermediate`)
@@ -172,6 +179,7 @@ Use a bounding box slightly larger than your area of interest to capture upstrea
 **Output**: `data/raw/glofas/historical/version_4_0/consolidated/discharge/grib2/area_{N}_{W}_{S}_{E}/` — one `data.grib` file per year.
 
 **Hardcoded values to change before running**:
+
 - `AREA` — replace bounding box with your region
 - Output path — currently assumes shared G: Drive; change `OUTPUT_ROOT` to your local data directory
 
@@ -179,9 +187,10 @@ Use a bounding box slightly larger than your area of interest to capture upstrea
 
 **Purpose**: Used in NB04 to count people exposed to flood inundation, and in NB05 to compute the denominator for OEP curves.
 
-**Recommended source**: https://hub.worldpop.org/geodata/listing?id=135 — Constrained individual countries, UN adjusted, 100m resolution
+**Recommended source**: [https://hub.worldpop.org/geodata/listing?id=135](https://hub.worldpop.org/geodata/listing?id=135) — Constrained individual countries, UN adjusted, 100m resolution
 
 **How to download**:
+
 1. Go to the WorldPop listing above
 2. Select your country from the dropdown
 3. Select the most recent available year (2020 or 2025 depending on country availability)
@@ -189,6 +198,7 @@ Use a bounding box slightly larger than your area of interest to capture upstrea
 5. Place in `data/raw/worldpop/{ISO3}/`
 
 **Naming convention** (the pipeline discovers files by glob):
+
 ```
 data/raw/worldpop/PHL/phl_pop_2025_CN_100m_R2025A_v1.tif   # Philippines
 data/raw/worldpop/MOZ/moz_pop_2020_CN_100m_R2020A_v1.tif   # Mozambique
@@ -196,8 +206,9 @@ data/raw/worldpop/BGD/bgd_pop_2020_CN_100m_R2020A_v1.tif   # Bangladesh
 ```
 
 **Alternatives** (if WorldPop not available for your country):
-- GHSL-POP (Global Human Settlement Layer): https://ghsl.jrc.ec.europa.eu/ghs_pop2023.php — EU-JRC product, 100m, global coverage
-- GPW v4.11 (Gridded Population of the World): https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-count-rev11
+
+- GHSL-POP (Global Human Settlement Layer): [https://ghsl.jrc.ec.europa.eu/ghs_pop2023.php](https://ghsl.jrc.ec.europa.eu/ghs_pop2023.php) — EU-JRC product, 100m, global coverage
+- GPW v4.11 (Gridded Population of the World): [https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-count-rev11](https://sedac.ciesin.columbia.edu/data/set/gpw-v4-population-count-rev11)
 
 Use the constrained model (UN-adjusted) when available — it is more accurate in low-density rural and periurban areas, which are typically the most flood-exposed populations.
 
@@ -205,14 +216,16 @@ Use the constrained model (UN-adjusted) when available — it is more accurate i
 
 **Purpose**: Defines basin boundaries for spatial analysis. Used in NB01 to delineate the watershed, and in NB04–NB05 for spatial joins.
 
-**Source**: https://www.hydrosheds.org/products/hydrobasins
+**Source**: [https://www.hydrosheds.org/products/hydrobasins](https://www.hydrosheds.org/products/hydrobasins)
 
 **What to download**:
+
 - **Level 6** (`hybas_as_lev06_v1c.shp` for Asia, etc.) — Large river basins (~10,000–100,000 km²). Use this for basin-level configuration.
 - **Level 8** — Medium sub-basins. Useful for larger watersheds you want to split.
 - **Level 12** — Finest resolution. Required for spatial joins between GloFAS cells and admin units in NB04.
 
 HydroSHEDS is divided by continent. Download the files for the relevant continent(s):
+
 - `af` — Africa
 - `as` — Asia
 - `au` — Australasia
@@ -221,6 +234,7 @@ HydroSHEDS is divided by continent. Download the files for the relevant continen
 - `sa` — South America
 
 **Placement**:
+
 ```
 data/raw/hydrobasins/level_6/hybas_as_lev06_v1c.gpkg
 data/raw/hydrobasins/level_8/hybas_as_lev08_v1c.gpkg
@@ -234,7 +248,9 @@ The `hydrobasins_id` field in your basin config YAML (see [Part 3](#part-3--basi
 2. Use the "Identify Features" tool to click on your basin of interest
 3. Note the `HYBAS_ID` value (e.g., `5060030230` for the upper Cagayan, Philippines)
 
-Alternatively, use the HydroSHEDS online viewer at https://www.hydrosheds.org/hydrosheds-core-data to browse and identify basin IDs without downloading.
+Alternatively, use the HydroSHEDS online viewer at [https://www.hydrosheds.org/hydrosheds-core-data](https://www.hydrosheds.org/hydrosheds-core-data) to browse and identify basin IDs without downloading.
+
+TODO: expected folder structure is not with levels, script checks for files inside vectors/hydrobasins/africa/hybas_af_ folder (check script)
 
 ### 2.4 JRC Global Flood Maps
 
@@ -243,6 +259,7 @@ Alternatively, use the HydroSHEDS online viewer at https://www.hydrosheds.org/hy
 No manual download is needed. NB02 uses your CEMS EWDS credentials to fetch the relevant tiles for your basin bounding box. Tiles are cached in `_jrc_cache/` and reused on subsequent runs.
 
 **Coverage note**: The JRC dataset covers most of the world's river systems at 100m resolution. However, tiles are absent or sparse in:
+
 - Very arid regions (Sahara, Arabian Peninsula interior)
 - Basins with minimal historical flood activity
 - Some small island nations
@@ -253,26 +270,32 @@ If NB02 reports "No tiles selected" for your basin, the JRC product does not cov
 
 **Purpose**: Required for municipality-level analysis in NB01 (`USE_MUNI_AOI=True`) and admin-unit risk profiles in NB05.
 
-**Source**: OCHA Humanitarian Data Exchange (HDX) — https://data.humdata.org/
+**Source**: OCHA Humanitarian Data Exchange (HDX) — [https://data.humdata.org/](https://data.humdata.org/)
 
 HDX provides Common Operational Datasets (CODs) for administrative boundaries in humanitarian operation countries. These are standardized and regularly updated.
 
 **How to download**:
-1. Go to https://data.humdata.org/
+
+1. Go to [https://data.humdata.org/](https://data.humdata.org/)
 2. Search for your country name + "administrative boundaries"
 3. Download the COD-AB shapefile or GeoJSON (usually named `{country}_adm{N}.{ext}`)
 
 **Required admin levels**:
+
 - **ADM3** (municipality / commune / sub-district) — for granular trigger decisions
 - **ADM2** (district / province) — for aggregated reporting
 
 **Placement**:
+
 ```
 data/raw/admin/{ISO3}_adm2.geojson
 data/raw/admin/{ISO3}_adm3.geojson
 ```
 
+TODO: not true, they are expected in data/raw/admin/lbr_cod_ab/{ISO3}_adm3.geojson
+
 CRS must be EPSG:4326. If downloaded files use a different CRS, reproject before use:
+
 ```bash
 ogr2ogr -t_srs EPSG:4326 output.geojson input.shp
 ```
@@ -337,10 +360,12 @@ vulnerability:
 
 NB01 supports two spatial aggregation modes, controlled by `USE_MUNI_AOI`:
 
-| Mode | Parameter | Use when |
-|------|-----------|---------|
-| **Watershed** | `USE_MUNI_AOI = False` | Single basin, no admin boundary data, first-pass calibration |
-| **Admin units** | `USE_MUNI_AOI = True` | Municipal/district-level triggers, detailed risk profiles |
+
+| Mode            | Parameter              | Use when                                                     |
+| --------------- | ---------------------- | ------------------------------------------------------------ |
+| **Watershed**   | `USE_MUNI_AOI = False` | Single basin, no admin boundary data, first-pass calibration |
+| **Admin units** | `USE_MUNI_AOI = True`  | Municipal/district-level triggers, detailed risk profiles    |
+
 
 This mode selection carries through all downstream notebooks (NB02–NB06). Auto-detection reads it from `run_config.json` produced by NB01.
 
@@ -373,15 +398,18 @@ run_name      = "2026-05-07_initial"  # Label for this calibration run
 
 **Threshold selection is fully automatic.** You do not need to manually inspect a plot and type a threshold value. The notebook calls `auto_select_threshold_pot()` from `src/philflood/models/ev/threshold_selection.py`, which uses a 3-tier stability algorithm:
 
-| Tier | Condition | Meaning |
-|------|-----------|---------|
-| **1 — Stable** ✅ | GPD ξ and σ stabilize across adjacent quantile candidates | Good data; model is well-behaved |
+
+| Tier                    | Condition                                                         | Meaning                                     |
+| ----------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
+| **1 — Stable** ✅        | GPD ξ and σ stabilize across adjacent quantile candidates         | Good data; model is well-behaved            |
 | **2 — Conservative** ⚠️ | Stability not reached; use lowest quantile with sufficient events | Marginal data quality; proceed with caution |
-| **3 — Fallback** ❌ | No stable or conservative threshold found; uses 95th percentile | Poor data quality; review discharge record |
+| **3 — Fallback** ❌      | No stable or conservative threshold found; uses 95th percentile   | Poor data quality; review discharge record  |
+
 
 The tier is shown in the output diagnostics table. A `fallback` result is a warning that the historical record may be too short or that the basin has unusual hydrology. Interpret high-RP estimates with particular caution in this case.
 
 **Manual override** (use only with domain reason):
+
 ```python
 threshold_override = None    # set e.g. to 1500.0 to force a specific threshold
 ```
@@ -400,29 +428,35 @@ NB01 produces several validation plots. These do **not** require user action but
 
 ### Outputs
 
-| File | Location | Contents |
-|------|----------|---------|
-| `run_config.json` | `data/processed/calibration/{basin_id}/{run_tag}/` | Master config for downstream notebooks |
-| `evt_pot_calibration.parquet` | same | Per-gauge GPD parameters + diagnostics |
-| `return-period_all.nc` | same | Return period estimates as CF-compliant NetCDF |
+
+| File                          | Location                                           | Contents                                       |
+| ----------------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| `run_config.json`             | `data/processed/calibration/{basin_id}/{run_tag}/` | Master config for downstream notebooks         |
+| `evt_pot_calibration.parquet` | same                                               | Per-gauge GPD parameters + diagnostics         |
+| `return-period_all.nc`        | same                                               | Return period estimates as CF-compliant NetCDF |
+
 
 The `evt_pot_calibration.parquet` columns used downstream:
 
-| Column | Renamed to (NB04/NB07) | Meaning |
-|--------|----------------------|---------|
-| `virtual_gauge_id` | `cell_id` | GloFAS grid cell identifier |
-| `threshold_m3s` | `u` | POT discharge threshold (m³/s) |
-| `gpd_xi` | `xi` | GPD shape parameter (EVT convention: positive = heavy tail) |
-| `gpd_sigma` | `sigma` | GPD scale parameter |
-| `lambda_events_per_year` | `lam` | Poisson event rate |
+
+| Column                   | Renamed to (NB04/NB07) | Meaning                                                     |
+| ------------------------ | ---------------------- | ----------------------------------------------------------- |
+| `virtual_gauge_id`       | `cell_id`              | GloFAS grid cell identifier                                 |
+| `threshold_m3s`          | `u`                    | POT discharge threshold (m³/s)                              |
+| `gpd_xi`                 | `xi`                   | GPD shape parameter (EVT convention: positive = heavy tail) |
+| `gpd_sigma`              | `sigma`                | GPD scale parameter                                         |
+| `lambda_events_per_year` | `lam`                  | Poisson event rate                                          |
+
 
 ### Auto-detection by downstream notebooks
 
 All notebooks NB02–NB06 find the NB01 output automatically:
+
 ```python
 from philflood.ops.config import load_run_config
 cfg = load_run_config(PROCESSED_ROOT, auto_select_latest=True)
 ```
+
 This picks the most recently modified `run_config.json` under `data/processed/calibration/`. To use a specific run, pass `run_config_path` explicitly.
 
 ---
@@ -456,6 +490,7 @@ data/processed/climada_hazard/{basin_id}/{run_tag}/climada_hazard_{basin_id}.hdf
 The HDF5 file contains a CLIMADA Hazard object: 8 events (return periods) × N centroids (100m grid cells within the basin). Each event stores flood depth in metres.
 
 Validate the output with:
+
 ```python
 from climada.hazard import Hazard
 haz = Hazard.from_hdf5("climada_hazard_*.hdf5")
@@ -492,6 +527,7 @@ This step is **not required** to produce risk profiles. However, for any first d
 ### What to do if validation fails
 
 Low F1 / high Bias suggests the JRC maps are not well-calibrated for your basin. Options:
+
 1. Adjust the depth threshold (try 0.1 m or 0.3 m)
 2. Investigate whether the event return period is correctly estimated
 3. Note the validation metrics in your documentation and apply appropriate uncertainty to risk profile outputs
@@ -514,38 +550,44 @@ Section 7 processes the GloFAS reforecast GRIB archive (~200 GB, 10–40 hours c
 
 ### Sections to run
 
-| Section | What it does |
-|---------|-------------|
-| 0–1 | Config, dependencies, load `run_config.json` |
-| 2 | Load EVT1 params from `evt_pot_calibration.parquet` |
-| 3 | Support mask: JRC RP500 wet cells (defines spatial extent) |
-| 4–4C | Detect historical flood events via connected-component labelling on active GloFAS cells |
-| 5 | Compute population impact per event: flood depth TIFFs × WorldPop raster at 11 depth thresholds (0.01–1.0 m) |
-| 6–6C | Fit EVT2 (spliced empirical body + POT-GPD tail) to historical impact peaks |
+
+| Section | What it does                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------ |
+| 0–1     | Config, dependencies, load `run_config.json`                                                                 |
+| 2       | Load EVT1 params from `evt_pot_calibration.parquet`                                                          |
+| 3       | Support mask: JRC RP500 wet cells (defines spatial extent)                                                   |
+| 4–4C    | Detect historical flood events via connected-component labelling on active GloFAS cells                      |
+| 5       | Compute population impact per event: flood depth TIFFs × WorldPop raster at 11 depth thresholds (0.01–1.0 m) |
+| 6–6C    | Fit EVT2 (spliced empirical body + POT-GPD tail) to historical impact peaks                                  |
+
 
 ### EVT2 output parameters
 
 The key output is `evt2_fit_popaffected_op.json` (primary depth threshold at 0.02 m):
 
-| Field | Meaning |
-|-------|---------|
-| `u` | Threshold: minimum population impact to qualify as an "extreme event" |
-| `xi` | GPD shape (positive = heavy tail; typical range 0.1–0.4 for flood impacts) |
-| `sigma` | GPD scale (spread of impacts above threshold) |
-| `lam_total` | Total Poisson event rate per year (all events, not just extremes) |
-| `p_exc` | Proportion of events exceeding the threshold u |
-| `tier` | Threshold selection tier: `stable` / `conservative` / `fallback` |
+
+| Field       | Meaning                                                                    |
+| ----------- | -------------------------------------------------------------------------- |
+| `u`         | Threshold: minimum population impact to qualify as an "extreme event"      |
+| `xi`        | GPD shape (positive = heavy tail; typical range 0.1–0.4 for flood impacts) |
+| `sigma`     | GPD scale (spread of impacts above threshold)                              |
+| `lam_total` | Total Poisson event rate per year (all events, not just extremes)          |
+| `p_exc`     | Proportion of events exceeding the threshold u                             |
+| `tier`      | Threshold selection tier: `stable` / `conservative` / `fallback`           |
+
 
 **Minimum data requirement**: At least 20 historical flood events above the EVT2 threshold are needed for reliable fitting. If the catalog has fewer, the `tier` output will be `fallback` and high-RP estimates will carry very wide uncertainty. This should be reported explicitly in any operational documentation.
 
 ### Outputs
 
-| File | Path | Used by |
-|------|------|---------|
-| `evt2_fit_popaffected_op.json` | `{output_dir}/evt2/` | NB05, NB06 (primary EVT2 fit) |
-| `evt2_fit_manifest.json` | `{output_dir}/evt2/` | NB05 multi-threshold comparison |
-| `evt2_return_levels_popaffected_op.parquet` | `{output_dir}/evt2/` | NB05 RP curve validation |
-| `event_registry_hist.parquet` | `{output_dir}/` | NB05, NB06 historical event list |
+
+| File                                        | Path                 | Used by                          |
+| ------------------------------------------- | -------------------- | -------------------------------- |
+| `evt2_fit_popaffected_op.json`              | `{output_dir}/evt2/` | NB05, NB06 (primary EVT2 fit)    |
+| `evt2_fit_manifest.json`                    | `{output_dir}/evt2/` | NB05 multi-threshold comparison  |
+| `evt2_return_levels_popaffected_op.parquet` | `{output_dir}/evt2/` | NB05 RP curve validation         |
+| `event_registry_hist.parquet`               | `{output_dir}/`      | NB05, NB06 historical event list |
+
 
 ---
 
@@ -559,7 +601,7 @@ The key output is `evt2_fit_popaffected_op.json` (primary depth threshold at 0.0
 
 The full NB05 runs a **10,000-year Year Loss Table (YLT) Monte Carlo simulation**. For humanitarian operations, a **1,000-year simulation** is sufficient there is no reforecast enrichment here, so the simulation will only use the footprints on the hisotrical catalogue.
 
-**`N_SIM_YEARS` parameter**: Change this from 10,000 to 1,000 for the humanitarian workflow. This reduces simulation time by 10× with negligible impact on RP2/5/10 estimates.
+`**N_SIM_YEARS` parameter**: Change this from 10,000 to 1,000 for the humanitarian workflow. This reduces simulation time by 10× with negligible impact on RP2/5/10 estimates.
 
 ### Direct GPD formula for quick estimates
 
@@ -588,6 +630,7 @@ These point estimates are useful for stakeholder briefings and prioritizing. The
 ### Spatial aggregation mode
 
 Set `USE_MUNI` to match the mode used in NB01:
+
 - `USE_MUNI = False` → single watershed aggregate
 - `USE_MUNI = True` → per-municipality / admin unit profiles
 
@@ -595,21 +638,25 @@ Set `USE_MUNI` to match the mode used in NB01:
 
 The following RP thresholds correspond to the three humanitarian activation tiers:
 
-| Tier | Return Period | Label | Meaning |
-|------|-------------|-------|---------|
-| T1 | RP2 | Moderate Watch | 1-in-2-year event; elevated readiness |
-| T2 | RP5 | High Alert | 1-in-5-year event; pre-position resources |
-| T3 | RP10 | Very High Activation | 1-in-10-year event; deploy response |
+
+| Tier | Return Period | Label                | Meaning                                   |
+| ---- | ------------- | -------------------- | ----------------------------------------- |
+| T1   | RP2           | Moderate Watch       | 1-in-2-year event; elevated readiness     |
+| T2   | RP5           | High Alert           | 1-in-5-year event; pre-position resources |
+| T3   | RP10          | Very High Activation | 1-in-10-year event; deploy response       |
+
 
 These tiers are defined per default in the trigger pipeline; see `docs/operations/trigger-pipeline-handover.md`.
 
 ### Key outputs
 
-| File | Contents | Used by |
-|------|----------|---------|
-| `watershed_oep_curve.json` | Watershed-level OEP: array of `{return_period, pop_affected}` | NB06 (required) |
-| `oep_curves_all_units.json` | Per-admin-unit OEP at each RP | Trigger pipeline |
-| Excel workbook | Stakeholder-facing risk profiles + EP curves | Reporting |
+
+| File                        | Contents                                                      | Used by          |
+| --------------------------- | ------------------------------------------------------------- | ---------------- |
+| `watershed_oep_curve.json`  | Watershed-level OEP: array of `{return_period, pop_affected}` | NB06 (required)  |
+| `oep_curves_all_units.json` | Per-admin-unit OEP at each RP                                 | Trigger pipeline |
+| Excel workbook              | Stakeholder-facing risk profiles + EP curves                  | Reporting        |
+
 
 ---
 
@@ -624,6 +671,7 @@ These tiers are defined per default in the trigger pipeline; see `docs/operation
 The current NB06 is an **event viewer** — it loads named historical flood events and classifies their severity using the NB05 OEP curve. This requires the full event registry from NB04 and the `watershed_oep_curve.json` from NB05.
 
 For humanitarian operations, you generally want **general scenario maps** at fixed return periods (RP2, RP5, RP10) rather than event-specific maps. The existing NB06 can produce these maps if you:
+
 1. Have completed NB02 (JRC hazard maps available)
 2. Have completed NB05 (`watershed_oep_curve.json` available)
 3. Focus on the RP-scenario rendering cells rather than the event-specific cells
@@ -655,6 +703,7 @@ The following tasks are suggested to fully simplify and make this workflow count
 **Why**: Currently users must manually download three datasets from three different websites and place files in the correct directories. This is the biggest friction point for deploying in a new country.
 
 **How to build**:
+
 - WorldPop REST API: `https://hub.worldpop.org/rest/data/pop/cic2020_100m?iso3={ISO3}` — returns download URL for the constrained 100m product
 - HydroSHEDS: No public API; use `requests` to download from the direct file links on the HydroSHEDS product page; detect continent from bounding box centroid
 - Admin boundaries: OCHA HDX API (`https://data.humdata.org/api/3/action/package_search?q={country}+admin+boundaries&fq=tags:cod-ab`) — returns GeoJSON download links
@@ -670,6 +719,7 @@ The following tasks are suggested to fully simplify and make this workflow count
 **Why**: The current NB04 includes Section 7+ (reforecast library), which takes 10–40 hours. Analysts running the humanitarian workflow will be confused by the long Section 7 or may run it by accident.
 
 **How to build**:
+
 - Copy NB04; delete or gate-out all cells from Section 7 onwards
 - Add `HUMANITARIAN_MODE` config cell at the top with a comment explaining the trade-off
 - Reduce `N_BOOTSTRAP_EVT2` default from 200 to 50 (sufficient for RP2/5/10 decisions)
@@ -686,6 +736,7 @@ The following tasks are suggested to fully simplify and make this workflow count
 **Why**: The 10K-year simulation takes ~20 minutes on a standard laptop and provides minimal benefit over 1K years when the EVT2 model is trained on historical data only (no reforecast enrichment). For operators who need a quick result, the direct GPD formula gives RP2/5/10 in seconds.
 
 **How to build**:
+
 - Copy NB05; change `N_SIM_YEARS` default to 1000
 - Add `QUICK_ESTIMATES` cell that computes `impact_at_rp(T, u, xi, sigma, lam)` for T in [2, 5, 10] and prints a formatted summary
 - Keep all OEP/AEP curve output unchanged (needed for NB06 and trigger pipeline)
@@ -693,6 +744,7 @@ The following tasks are suggested to fully simplify and make this workflow count
 - Make the per-municipality Excel workbook optional via `EXPORT_EXCEL = False`
 
 **Key function** in `src/philflood/models/impact/impact_evt.py`:
+
 ```python
 from philflood.models.impact.impact_evt import impact_to_return_period
 ```
@@ -708,6 +760,7 @@ from philflood.models.impact.impact_evt import impact_to_return_period
 **Why**: The current NB06 is an event viewer that requires the historical event registry and named event classification. For humanitarian scenario planning, you want fixed-RP maps regardless of what events happened historically.
 
 **How to build**:
+
 - Load JRC RP maps (from NB02 CLIMADA hazard HDF5 or intermediate TIFFs) hazard space.
 - Dependency on `watershed_oep_curve.json` since this is the impact space.
 - Create shapefiles and rasters for post-analysis. Viewer is nice to keep for those who only care about results.
@@ -723,13 +776,15 @@ from philflood.models.impact.impact_evt import impact_to_return_period
 
 **Key hardcoded values to find and replace**:
 
-| Notebook | Hardcoded value | Replace with |
-|----------|----------------|-------------|
-| NB00-02 | `AREA = [35, 63, 4, 131]` (Philippines bbox) | `COUNTRY_ISO3`, `AREA` config cell |
-| NB00-02 | G: Drive output path | `OUTPUT_ROOT` environment variable |
-| NB01 | `"PHL"` in file discovery | `COUNTRY_ISO3` from basin config |
-| NB04 | `phl_pop_*` worldpop glob | derive from `country_iso3` field |
-| All | Absolute paths to shared drives | relative `data_root` from basin YAML |
+
+| Notebook | Hardcoded value                              | Replace with                         |
+| -------- | -------------------------------------------- | ------------------------------------ |
+| NB00-02  | `AREA = [35, 63, 4, 131]` (Philippines bbox) | `COUNTRY_ISO3`, `AREA` config cell   |
+| NB00-02  | G: Drive output path                         | `OUTPUT_ROOT` environment variable   |
+| NB01     | `"PHL"` in file discovery                    | `COUNTRY_ISO3` from basin config     |
+| NB04     | `phl_pop_`* worldpop glob                    | derive from `country_iso3` field     |
+| All      | Absolute paths to shared drives              | relative `data_root` from basin YAML |
+
 
 ---
 
@@ -740,6 +795,7 @@ from philflood.models.impact.impact_evt import impact_to_return_period
 **Why**: The MRL and parameter stability plots are not interpretable without statistics training. An operator running the workflow for the first time will not know what "ξ > 0" means or whether a slightly non-linear MRL is a problem.
 
 **How to build**:
+
 - After the diagnostics table, add a cell that reads `gof_pass`, `mrl_linear_ok`, and threshold `tier` per gauge
 - Print a formatted summary: ✅ for good, ⚠️ for warning, ❌ for failure
 - Add a legend explaining the meaning of ξ in plain terms: *"positive ξ (heavy tail) means large floods are relatively more common than a normal distribution would predict — this is typical for river systems"*
@@ -755,6 +811,7 @@ from philflood.models.impact.impact_evt import impact_to_return_period
 **Caution**: Impact data is noisier than discharge data, and sample sizes are much smaller. GoF tests have low power with <50 exceedances. Apply with looser tolerances than EVT1 and use as an informational flag rather than a hard gate.
 
 **Files to modify**:
+
 - `calibration/notebooks/04_ImpactCatalogue_ImpactEVT_CATMODEL_10000y_UPDATED.ipynb` (Section 6)
 - `calibration/notebooks/04H_EventCatalog_EVT2_Humanitarian.ipynb` (Task 2, once created)
 
@@ -764,19 +821,20 @@ from philflood.models.impact.impact_evt import impact_to_return_period
 
 NB07 (`07_Trigger_Validation_Reforecast.ipynb`) Cell 3 contains copied versions of NB04 helper functions with old names. After the NB04 v0.4.0 rename, these must be updated:
 
-| Old name (in NB07) | New name (in NB04) |
-|--------------------|-------------------|
-| `w_to_rp_spliced` | `impact_to_rp_spliced` |
+
+| Old name (in NB07)       | New name (in NB04)        |
+| ------------------------ | ------------------------- |
+| `w_to_rp_spliced`        | `impact_to_rp_spliced`    |
 | `fit_evt2_spliced_wpeak` | `fit_evt2_spliced_impact` |
-| `w_peak_series` | `impact_peak_series` |
-| `RP_W_peak` | `RP_impact` |
+| `w_peak_series`          | `impact_peak_series`      |
+| `RP_W_peak`              | `RP_impact`               |
+
 
 Remove any copies of deleted functions: `sample_w_from_evt2`, `compute_w_series_from_discharge`.
 
 **Files to modify**: `calibration/notebooks/07_Trigger_Validation_Reforecast.ipynb`
 
 ---
-
 
 ## Appendix A — Workflow Summary
 
@@ -846,13 +904,16 @@ data/
 
 ## Appendix C — Cross-references
 
-| Topic | Document |
-|-------|---------|
-| Trigger algorithm specification | `docs/operations/trigger-pipeline-handover.md` |
-| Statistical methodology (EVT, GPD theory) | `docs/technical/methods-overview.md` |
-| Glossary of terms (POT, GPD, EVT, OEP, AEP) | `docs/technical/GLOSSARY.md` |
-| Architecture and module layout | `docs/technical/ARCHITECTURE.md` |
-| NB01 calibration deep dive | `docs/user-guides/notebook01-calibration-guide.md` |
-| NB02 hazard maps deep dive | `docs/user-guides/notebook02-hazard-guide.md` |
-| Notebook config pattern (`load_run_config`) | `docs/user-guides/notebook-config-guide.md` |
-| Troubleshooting common errors | `docs/user-guides/troubleshooting.md` |
+
+| Topic                                       | Document                                           |
+| ------------------------------------------- | -------------------------------------------------- |
+| Trigger algorithm specification             | `docs/operations/trigger-pipeline-handover.md`     |
+| Statistical methodology (EVT, GPD theory)   | `docs/technical/methods-overview.md`               |
+| Glossary of terms (POT, GPD, EVT, OEP, AEP) | `docs/technical/GLOSSARY.md`                       |
+| Architecture and module layout              | `docs/technical/ARCHITECTURE.md`                   |
+| NB01 calibration deep dive                  | `docs/user-guides/notebook01-calibration-guide.md` |
+| NB02 hazard maps deep dive                  | `docs/user-guides/notebook02-hazard-guide.md`      |
+| Notebook config pattern (`load_run_config`) | `docs/user-guides/notebook-config-guide.md`        |
+| Troubleshooting common errors               | `docs/user-guides/troubleshooting.md`              |
+
+

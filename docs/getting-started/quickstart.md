@@ -6,42 +6,37 @@ Get PhilFlood running in 15 minutes. This guide covers installation, verificatio
 
 ## Prerequisites
 
-- Python **3.10+** (recommended **3.11**)
+- Python **3.9+** (recommended **3.11**)
+- [Mamba](https://mamba.readthedocs.io/) or Conda package manager
 - Basic command-line knowledge
 - Access to GloFAS data (for operational use)
 
-> **Windows note (recommended):** install compiled geo/netCDF dependencies via **conda-forge**, then install PhilFlood with `pip install -e . --no-deps` to avoid source builds.
+> **Windows note:** install compiled geo/netCDF dependencies via **conda-forge** (step 1 already does this), then install PhilFlood with `pip install -e . --no-deps` to avoid source builds.
 
 ---
 
 ## Step 1: Installation
 
-### Option A: Install from source (recommended)
-
-```powershell
+```bash
 # Clone the repository
-git clone https://github.com/yourusername/GLOFAS_ImpactFloodForecasting_PHL.git
+git clone https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL.git
 cd GLOFAS_ImpactFloodForecasting_PHL
 
-# Create and activate environment
-mamba create -n PHLFlood -c conda-forge python=3.11 -y
+# Create conda environment (includes cfgrib, eccodes, geopandas, xarray, etc.)
+mamba env create -f environment.yml
 mamba activate PHLFlood
 
-# Install compiled dependencies via conda-forge (prebuilt binaries)
-mamba install -c conda-forge -y `
-  numpy pandas xarray netcdf4 cftime `
-  geopandas rasterio shapely pyproj pyogrio `
-  scipy pyyaml python-dateutil
-
-# Install PhilFlood in editable mode WITHOUT re-installing deps via pip
-pip install -e . --no-deps
+# Install PhilFlood and its pip dependencies (climada, climada-petals, pyextremes, ipywidgets)
+pip install -e .
 
 # Optional: development extras (Jupyter, testing, linting)
-pip install -e ".[dev]" --no-deps
+pip install -e ".[dev]"
 
 # Optional: operations extras (scheduler/logging/CLI niceties)
-pip install -e ".[ops]" --no-deps
+pip install -e ".[ops]"
 ```
+
+> **macOS note:** all commands above work as-is in macOS Terminal or iTerm2. No additional steps are needed.
 
 ---
 
@@ -49,11 +44,11 @@ pip install -e ".[ops]" --no-deps
 
 Check that the CLI is available:
 
-```powershell
+```bash
 philflood --help
 ```
 
-You should see the main help menu with available commands.
+You should see the main help menu with available commands (`monitor`, `validate`, `calibrate`).
 
 ---
 
@@ -61,10 +56,11 @@ You should see the main help menu with available commands.
 
 Before running anything, validate the example basin configuration:
 
-```powershell
+```bash
 philflood validate ops/configs/basins/example_basin.yaml
 ```
-**Expected output:** You'll see warnings about placeholder values. This is normal! The example config is a template that needs calibration data.
+
+**Expected output:** You'll see warnings about placeholder values. This is normal — the example config is a template that needs calibration data.
 
 ---
 
@@ -72,8 +68,7 @@ philflood validate ops/configs/basins/example_basin.yaml
 
 ### 4.1 Copy the Example Template
 
-```powershell
-# Create a new basin config from the template
+```bash
 cp ops/configs/basins/example_basin.yaml ops/configs/basins/my_basin.yaml
 ```
 
@@ -86,10 +81,12 @@ basin_id: my_basin_name
 hydrobasins_id: 123456  # Your actual HydroBasins ID
 glofas_point_ids:
   - PHL_12345  # Your GloFAS station ID(s)
-data_root: "C:/data/my_basin"  # Path to your data folder
+data_root: "/data/my_basin"  # Path to your data folder
 ```
+
 Re-validate:
-```powershell
+
+```bash
 philflood validate ops/configs/basins/my_basin.yaml
 ```
 
@@ -101,13 +98,14 @@ philflood validate ops/configs/basins/my_basin.yaml
 
 The main calibration notebook is **01_evt_pot_calibration_workflow.ipynb**:
 
-```powershell
+```bash
 jupyter notebook calibration/notebooks/01_evt_pot_calibration_workflow.ipynb
 ```
 
 ### 5.2 Calibration Features
 
 #### Cell-Level Extraction (Optional Advanced Feature)
+
 Instead of using just the pour point (outlet), you can extract discharge from **all GloFAS grid cells within the basin polygon**:
 
 ```python
@@ -117,33 +115,36 @@ USE_CELL_EXTRACTION = True   # False = pour point (default), True = all cells
 
 **When to use:**
 - ✅ Maximum spatial detail needed
-- ✅ Multiple discharge estimates per basin  
+- ✅ Multiple discharge estimates per basin
 - ✅ Analyze local vs. outlet variations
 - ❌ For quick testing, use default (False)
 
 #### NetCDF Output (Automatic)
+
 The notebook automatically generates `return-period.nc` containing:
-- Return periods for each gauge (1, 2, 5, 10, 20, 50, 100, 200, 500 years)
+- Return periods for each gauge: **1, 10, 20, 50, 75, 100, 200, 500 years** (8 return periods)
 - Discharge (m³/s) at each return period
 - Latitude, longitude, and metadata
 - CF-compliant format (readable by QGIS, xarray, GIS tools)
 
 ### 5.3 Run Through Calibration Sections
 
-The workflow has 49 sections:
+The workflow is organised into 13 sections:
+
 - **Sections 1–4**: Configuration and setup
 - **Sections 5–8**: Virtual gauge extraction (automated for cell-level)
-- **Sections 9–12**: POT threshold selection, GPD fitting, synthetic catalog
+- **Sections 9–11**: POT threshold selection, GPD fitting, bootstrap return levels
 - **Section 13**: NetCDF generation (automatic)
+
+> **Note:** Section 12 (Synthetic Catalog) is archived. The current approach uses the formula-based bootstrap in Section 11C, which is faster and more accurate.
 
 ### 5.4 Generate Operational Config
 
 After calibration, save parameters to your basin config:
 
-```powershell
-# Update your basin YAML with calibrated parameters
+```bash
 python calibration/scripts/generate_basin_config_from_calibration.py \
-    --input calibration/output/my_basin_results.yaml \
+    --input data/processed/calibration/evt_pot_calibration.parquet \
     --output ops/configs/basins/my_basin.yaml
 ```
 
@@ -151,29 +152,31 @@ python calibration/scripts/generate_basin_config_from_calibration.py \
 
 ## Step 6: Run Operational Monitoring
 
-Once your basin is calibrated, run monitoring:
+> **⚠️ Development status:** The automated monitoring pipeline (`philflood monitor`) is a planned feature targeting v1.0. Running it currently raises `NotImplementedError`. For now, use the calibration notebooks and `calibration/scripts/run_reforecast_month.py` for operational processing.
+
+Once the monitoring pipeline is implemented, the CLI will work as follows:
 
 ### Test with Historical Date
 
-```powershell
-philflood monitor --date 2024-08-15 --basins ops/configs/basins/my_basin.yaml
+```bash
+philflood monitor ops/configs/basins/my_basin.yaml --date 2024-08-15
 ```
 
 ### Run for Today
 
-```powershell
-philflood monitor --basins ops/configs/basins/my_basin.yaml
+```bash
+philflood monitor ops/configs/basins/my_basin.yaml
 ```
 
 ### Monitor Multiple Basins
 
-```powershell
+```bash
 philflood monitor ops/configs/basins/basin1.yaml ops/configs/basins/basin2.yaml
 ```
 
 ### Monitor All Basins in a Folder
 
-```powershell
+```bash
 philflood monitor --basin-dir ops/configs/basins --output results.json
 ```
 
@@ -181,7 +184,7 @@ philflood monitor --basin-dir ops/configs/basins --output results.json
 
 ## Step 7: Understand the Output
 
-Monitoring output shows:
+When monitoring is operational, output will show:
 
 ```
 🔍 Running monitoring for 1 basin(s) on 2025-12-29
@@ -205,11 +208,25 @@ Monitoring output shows:
 
 **Solution:** Make sure you're in the virtual environment and installed with `pip install -e .`
 
+```bash
+mamba activate PHLFlood
+pip install -e .
+```
+
+### ❌ "No module named 'cfgrib'" or "No module named 'eccodes'"
+
+**Solution:** These GRIB-reading dependencies should be installed via `environment.yml`. If missing:
+
+```bash
+mamba install -c conda-forge cfgrib eccodes
+```
+
 ### ❌ "No module named 'climada'"
 
-**Solution:** CLIMADA is optional during development. For full operational use, install it separately:
-```powershell
-pip install climada
+**Solution:** Install via pip (not conda):
+
+```bash
+pip install climada climada-petals
 ```
 
 ### ❌ "Data path does not exist"
@@ -218,7 +235,7 @@ pip install climada
 
 ### ❌ Validation shows many warnings
 
-**Solution:** This is expected for the example config! Update the parameters after running calibration notebooks.
+**Solution:** Expected for the example config — update the parameters after running calibration notebooks.
 
 ---
 
@@ -234,7 +251,7 @@ After running the calibration notebook, verify the outputs:
 import pandas as pd
 
 # Load results
-df = pd.read_parquet("return_levels/return_levels_bootstrap.parquet")
+df = pd.read_parquet("data/processed/calibration/return_levels_bootstrap.parquet")
 
 # Check one gauge
 gauge_data = df[df["virtual_gauge_id"] == df["virtual_gauge_id"].iloc[0]]
@@ -252,39 +269,36 @@ for _, row in gauge_data.iterrows():
 ```
 
 **Expected:**
--  CV (coefficient of variation) between 0.02-0.30 (2-30%)
--  Discharge increases with return period
--  No NaN values
+- CV (coefficient of variation) between 0.02–0.30 (2–30%)
+- Discharge increases with return period
+- No NaN values
 
-#### Check CLIMADA NetCDF Output
+#### Check Hazard NetCDF Output (from Notebook 02)
 
 ```python
 import xarray as xr
 
-# Load NetCDF
-ds = xr.open_dataset("climada_flood_hazard.nc")
+# Load NetCDF (output of Notebook 02)
+ds = xr.open_dataset("data/processed/flood_maps_ev.nc")
 
 # Verify structure
-print(f"Events: {ds.dims['event']}")
-print(f"Centroids: {ds.dims['latitude'] * ds.dims['longitude']}")
+print(f"Return periods: {ds.dims}")
 print(f"Variables: {list(ds.data_vars)}")
 
-# Check required CLIMADA variables
-assert "intensity" in ds.data_vars
-assert "frequency" in ds.data_vars
-assert "intensity_std" in ds.data_vars
-print(" CLIMADA-compatible structure confirmed")
+# Check all 8 return periods are present
+assert ds.dims.get("return_period", ds.dims.get("event", 0)) == 8, \
+    "Expected 8 return periods: [1, 10, 20, 50, 75, 100, 200, 500 yr]"
+print("Hazard NetCDF structure confirmed")
 ```
 
 **Expected:**
--  All 9 return period events present
--  intensity, frequency, intensity_std variables exist
--  No errors loading with xarray
+- All 8 return period layers present
+- No errors loading with xarray
 
 ### Common Validation Issues
 
 **Issue:** Section 11C slow (>5s per gauge)
-- Check data quality, reduce bootstrap iterations if needed
+- Reduce `n_bootstrap` in the notebook call (default 500; 20 is enough for exploratory work)
 
 **Issue:** NetCDF has NaN values
 - Verify gauge ID format: `CELL__lat_XX.XX__lon_YY.YY`
@@ -306,23 +320,23 @@ print(" CLIMADA-compatible structure confirmed")
 ## Getting Help
 
 - **Documentation**: See [Methods Overview](../technical/methods-overview.md) for methodology
-- **Issues**: Report problems via GitHub Issues
+- **Issues**: Report problems via [GitHub Issues](https://github.com/rodekruis/GLOFAS_ImpactFloodForecasting_PHL/issues)
 - **Questions**: Contact the IBF team
 
 ---
 
 ## Directory Structure Reference
 
-For a complete view of the codebase organization, see the [main README](../../README.md#directory-structure). Key directories for this quickstart:
+For a complete view of the codebase organisation, see the [main README](../../README.md#directory-structure). Key directories for this quickstart:
 
-- **`calibration/notebooks/`** - Interactive EVT calibration workflows
-- **`src/philflood/calibration/`** - Statistical model fitting code  
-- **`src/philflood/models/ev/`** - Extreme value theory models
-- **`ops/configs/basins/`** - Basin-specific configuration files
-- **`data/processed/calibration/`** - Calibration outputs
+- **`calibration/notebooks/`** — Interactive EVT calibration workflows
+- **`src/philflood/calibration/`** — Statistical model fitting code
+- **`src/philflood/models/ev/`** — Extreme value theory models
+- **`ops/configs/basins/`** — Basin-specific configuration files
+- **`data/processed/calibration/`** — Calibration outputs
 
 For architecture details, see [ARCHITECTURE.md](../technical/ARCHITECTURE.md).
 
 ---
 
-**You're ready to go!** 🚀
+**You're ready to go!**
