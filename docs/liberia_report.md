@@ -3,7 +3,7 @@
 **Analyst:** Silvia  
 **Started:** 2026-05-25  
 **Basin:** Saint Paul River (`saint_paul_01`)  
-**Status:** 🔄 In progress — NB05 complete, NB06 fixes applied and ready to run
+**Status:** 🔄 In progress — NB06 complete; all notebooks run
 
 > This is a living notes document. It will be turned into a formal report once all notebooks have run. Add findings after each notebook.
 
@@ -325,7 +325,7 @@ Population exposed per flood event (OEP, 20 mm depth threshold):
 ## 9. Scenario Maps (NB06)
 
 **Mode:** RP-scenario (cells 1→2→3→4→5→9→10→11); event viewer cells skipped (`NAMED_EVENTS = {}`)  
-**Status:** 🔄 Ready to run
+**Status:** ✅ Complete
 
 ### 9.1 What NB06 produces
 
@@ -354,6 +354,57 @@ Population exposed per flood event (OEP, 20 mm depth threshold):
 | **11** | **RP-scenario population exposure → admin table + CSV** | ✅ |
 | 12–15 | Event population, OEP RP, risk matrix export, dashboard | ⏭ skip |
 
+### 9.3 Basin totals (JRC RP scenarios)
+
+59 admin units intersect the Saint Paul basin AOI. WorldPop grid: 5,039 × 4,947 cells, total population in raster = 5,672,239.
+
+| Return Period | People exposed (JRC) |
+|---|---:|
+| RP10  | 715,063 |
+| RP20  | 837,516 |
+| RP50  | 954,147 |
+| RP75  | 1,005,338 |
+| RP100 | 1,039,426 |
+| RP200 | 1,107,512 |
+| RP500 | 1,197,459 |
+
+### 9.4 County-level exposure (JRC RP scenarios)
+
+| County | RP10 | RP20 | RP50 | RP75 | RP100 | RP200 | RP500 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Bomi | 13,243 | 17,250 | 23,512 | 26,845 | 29,826 | 34,615 | 42,612 |
+| Bong | 1,147 | 1,335 | 1,724 | 1,900 | 2,010 | 2,243 | 2,575 |
+| Gbapolu | 1,161 | 1,335 | 1,472 | 1,516 | 1,557 | 1,609 | 1,746 |
+| Lofa | 2,363 | 2,544 | 2,776 | 2,848 | 2,933 | 3,036 | 3,194 |
+| Montserrado | 697,149 | 815,053 | 924,664 | 972,230 | 1,003,100 | 1,066,009 | 1,147,331 |
+
+### 9.5 District-level exposure (non-zero rows, JRC RP scenarios)
+
+| County | District | RP10 | RP20 | RP50 | RP75 | RP100 | RP200 | RP500 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Bomi | Klay | 13,012 | 16,940 | 22,988 | 26,304 | 29,283 | 34,033 | 41,981 |
+| Bomi | Mecca | 231 | 310 | 523 | 540 | 544 | 582 | 631 |
+| Bong | Fuamah | 757 | 875 | 1,127 | 1,219 | 1,282 | 1,458 | 1,691 |
+| Bong | Sanayea | 294 | 354 | 452 | 535 | 580 | 629 | 722 |
+| Bong | Zota | 96 | 106 | 145 | 146 | 147 | 156 | 163 |
+| Gbapolu | Belleh | 227 | 233 | 257 | 263 | 269 | 281 | 314 |
+| Gbapolu | Bokomu | 933 | 1,102 | 1,216 | 1,253 | 1,280 | 1,320 | 1,415 |
+| Gbapolu | Bopolu | 0 | 0 | 0 | 0 | 8 | 8 | 17 |
+| Lofa | Salayea | 805 | 875 | 997 | 1,006 | 1,022 | 1,075 | 1,113 |
+| Lofa | Zorzor | 1,557 | 1,668 | 1,779 | 1,842 | 1,911 | 1,962 | 2,081 |
+| Montserrado | GreaterMonrovia | 561,798 | 652,215 | 734,223 | 773,568 | 799,871 | 851,897 | 919,884 |
+| Montserrado | StPaulRiver | 135,278 | 162,758 | 190,336 | 198,545 | 203,107 | 213,972 | 227,280 |
+| Montserrado | Todee | 74 | 81 | 105 | 117 | 122 | 140 | 168 |
+
+### 9.6 Notes and caveats
+
+- **Methodology differs from NB05.** NB06 uses JRC flood depth rasters directly: for each return period, pixels with depth ≥ 20 mm are masked and overlaid with WorldPop to sum exposed population. This is a **deterministic spatial exposure** count, not a probabilistic OEP curve. Figures are therefore not directly comparable to Section 7.
+- **Bomi/Klay is significant.** Klay district (Bomi County) shows 13,012 people exposed at RP10, rising to ~42,000 at RP500 — higher than any single Lofa or Bong district. It was absent from NB05 results because NB05 uses historical event footprints rather than the raw JRC rasters.
+- **Grand Bassa and Nimba absent.** Neither county appears in the NB06 output. Grand Bassa Districts #1–3 showed small non-zero values in NB05 (OEP-based), but the JRC rasters for those cells fall below the 20 mm threshold or outside the basin AOI polygon at all return periods. Nimba remains zero, consistent with NB05.
+- **Montserrado still dominates.** GreaterMonrovia alone accounts for 79% of the RP10 basin total (562K of 715K). StPaulRiver district adds 19% (135K). All other counties combined contribute < 2%.
+- **RP2 and RP5 not available from JRC.** The RP2/5 columns in Section 8 (Final Deliverable) come from NB05's EVT2-based OEP; NB06 provides the RP10–RP500 JRC-based figures.
+- **Output file:** `data/processed/event_viewer/saint_paul_01/2026-05-25_LBR-saint-paul/rp_scenario_admin_exposure.csv`
+
 ---
 
 ## 10. Open Questions & Next Steps
@@ -365,3 +416,4 @@ Population exposed per flood event (OEP, 20 mm depth threshold):
 - [ ] Investigate RP200/500 fringe NaNs — confirm they don't overlap populated areas (14,400 / 28,800 edge cells; expected to be outside flood corridor but not formally verified)
 - [ ] Grand Bassa district names — GADM v4.1 stores them as "District #1–3" rather than named districts; verify whether official names exist and update if needed for stakeholder deliverable
 - [ ] Nimba County — confirm zero exposure is expected (Saint Paul basin delineation does not reach Nimba); if Nimba is a priority county, check whether a separate basin analysis is needed
+- [ ] Reconcile NB05 vs NB06 county coverage — Bomi/Klay appears in NB06 (JRC rasters) but not NB05 (historical event footprints); Grand Bassa appears in NB05 but not NB06; investigate whether this reflects a real methodological difference or a basin delineation edge effect
