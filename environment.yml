@@ -18,6 +18,6 @@ dependencies:
   - ipywidgets
   # Package manager
   - pip
-  - pip:
+  # - pip:
       # PhilFlood project (installs climada, climada-petals, pyextremes + all dependencies)
-      - -e .
+      # - -e .
