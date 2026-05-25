@@ -113,8 +113,23 @@ def open_grib_dataset(grib_path: Union[str, Path], index_dir: Union[str, Path], 
         bk.update(backend_kwargs)
 
     try:
-        logger.debug(f"Opening GRIB: {grib_path} with index at {indexpath}")
-        ds = xr.open_dataset(grib_path, engine="cfgrib", backend_kwargs=bk)
+        import warnings
+        # Suppress ECCODES C-library stderr warnings about zero-date padding messages
+        # (year=0 month=0 day=0) — these are harmless GloFAS GRIB artefacts.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            logger.debug(f"Opening GRIB: {grib_path} with index at {indexpath}")
+            ds = xr.open_dataset(grib_path, engine="cfgrib", backend_kwargs=bk)
+
+        # Normalise longitudes from 0–360 to −180–180 if needed.
+        # GloFAS western-hemisphere files (e.g. Liberia) use 0–360 convention
+        # (e.g. −7°E stored as 353°), which breaks spatial joins with shapefiles
+        # that use −180–180.  Convert in-place on the coordinate array.
+        _, lon_name = infer_lat_lon_names(ds)
+        if float(ds[lon_name].max()) > 180:
+            ds = ds.assign_coords({lon_name: ds[lon_name] - 360})
+            logger.debug(f"Normalised longitudes from 0–360 to −180–180 for {grib_path.name}")
+
         logger.debug(f"Successfully opened {grib_path}")
         return ds
     except Exception as e:

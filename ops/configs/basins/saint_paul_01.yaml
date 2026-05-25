@@ -1,0 +1,36 @@
+---
+# Saint Paul River basin — Liberia
+# See docs/liberia-adaptation.md for full change log and setup notes.
+
+basin_id: saint_paul_01
+country_iso3: LBR
+
+# HydroBASINS level 6 ID for the Saint Paul River catchment.
+# TO FIND: open hybas_af_lev06_v1c.shp in QGIS, use Identify Features tool,
+# click the Saint Paul River basin polygon, note the HYBAS_ID value.
+# Confirmed in QGIS 2026-05-24 using hybas_af_lev06_v1c.shp + Identify Features.
+# Polygon covers central-western Liberia draining toward Monrovia — correct Saint Paul catchment.
+hydrobasins_level: 6
+hydrobasins_id: 1060024870
+
+# GloFAS virtual gauge IDs — leave as placeholder, NB01 fills these in automatically
+# after running Sections 4–7.
+glofas_point_ids:
+  - LBR_00000  # placeholder — updated automatically by NB01
+
+data_root: data  # relative to project root
+
+evt:
+  method: POT-GPD
+  threshold_m3s: 0.0        # filled after NB01
+  run_length_days: 5
+  gpd_shape_xi: 0.0         # filled after NB01
+  gpd_scale_sigma: 1.0      # filled after NB01
+  event_rate_per_year: 0.0  # filled after NB01
+
+vulnerability:
+  depth_threshold_m: 0.3
+  impact_fraction: 1.0
+
+# trigger: section intentionally omitted.
+# Trigger thresholds derived from NB05 OEP curves, not configured here.
